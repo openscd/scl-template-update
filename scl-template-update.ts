@@ -250,9 +250,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     return html`<md-fab
       label="Update Logical Node Type"
       @click=${() => this.updateTemplate()}
-    >
-      <md-icon slot="icon">edit</md-icon>
-    </md-fab>`;
+    ></md-fab>`;
   }
 
   renderLNodeTypeSelector(): TemplateResult {

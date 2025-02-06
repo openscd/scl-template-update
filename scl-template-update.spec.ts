@@ -224,7 +224,7 @@ describe('NsdTemplateUpdater', () => {
       expect(
         element.warningDialog?.querySelector('form')?.textContent
       ).to.include(
-        `The selected logical node type is referenced. This plugin should be used durig specification only.`
+        `The selected logical node type is referenced. This plugin should be used during specification only.`
       );
     });
 

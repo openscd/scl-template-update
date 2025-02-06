@@ -191,7 +191,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     );
     if (isReferenced)
       this.showWarning(
-        `The selected logical node type is referenced. This plugin should be used durig specification only.`
+        `The selected logical node type is referenced. This plugin should be used during specification only.`
       );
 
     this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType!);
@@ -227,7 +227,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       <div slot="headline">Waring: Data loss</div>
       <form slot="content" id="form-id" method="dialog">
         The logical node has additional data object not defined in the NSD.
-        Updating will lead to loss of data! Do you still want to process?
+        Updating will lead to loss of data! Do you still want to proceed?
       </form>
       <div slot="actions">
         <md-outlined-button

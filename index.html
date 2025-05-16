@@ -1,40 +1,51 @@
 <html>
   <head>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Material+Icons&display=block"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <open-scd plugins='{"editor": [{"name": "Template Updator", "translations": {"de": "Template Updator"}, "icon": "add_box", "active": true, "src": "/dist/scl-template-update.js"}, {"name": "Template Generator", "translations": {"de": "Template Generator"}, "icon": "edit", "active": true, "src": "https://openenergytools.github.io/oscd-template-generator/oscd-template-generator.js"}], "menu": [{"name": "Open File", "translations": {"de": "Datei öffnen"}, "icon": "folder_open", "active": true, "src": "https://openscd.github.io/oscd-open/oscd-open.js"}, {"name": "Save File", "translations": {"de": "Datei öffnen"}, "icon": "save", "active": true, "src": "https://openscd.github.io/oscd-save/oscd-save.js"}]}'></open-scd>
+    <open-scd
+      plugins='{"editor": [{"name": "Template Update", "icon": "copy_all", "active": true, "src": "/dist/scl-template-update.js"}, {"name": "Template Generator", "translations": {"de": "Template Generator"}, "icon": "add_box", "active": true, "src": "/dist/oscd-template-generator.js"}, {"name": "Template Editor", "translations": {"de": "Template Editor"}, "icon": "edit", "active": true, "src": "https://openscd.github.io/plugins/src/editors/Templates.js"}], "menu": [{"name": "Open File", "translations": {"de": "Datei öffnen"}, "icon": "folder_open", "active": true, "src": "https://openscd.github.io/oscd-open/oscd-open.js"}, {"name": "Save File", "translations": {"de": "Datei öffnen"}, "icon": "save", "active": true, "src": "https://openscd.github.io/oscd-save/oscd-save.js"}]}'
+    ></open-scd>
 
-<script type="module">
-import '@openenergytools/open-scd-core/open-scd.js';
+    <script type="module">
+      import '@openenergytools/open-scd-core/open-scd.js';
 
-const editor = document.querySelector('open-scd');
-const params = (new URL(document.location)).searchParams;
-for (const [name, value] of params) {
-editor.setAttribute(name, value);
-}
-</script>
+      const editor = document.querySelector('open-scd');
+      const params = new URL(document.location).searchParams;
+      for (const [name, value] of params) {
+        editor.setAttribute(name, value);
+      }
+    </script>
 
-<script>
-const _customElementsDefine = window.customElements.define;
-window.customElements.define = (name, cl, conf) => {
-  if (!customElements.get(name)) {
-    _customElementsDefine.call(window.customElements, name, cl, conf);
-  }
-};
-</script>
+    <script>
+      const _customElementsDefine = window.customElements.define;
+      window.customElements.define = (name, cl, conf) => {
+        if (!customElements.get(name)) {
+          _customElementsDefine.call(window.customElements, name, cl, conf);
+        }
+      };
+    </script>
 
-<style>
-* {
-  margin: 0px;
-  padding: 0px;
-}
+    <style>
+      * {
+        margin: 0px;
+        padding: 0px;
+      }
 
-body {
-  background: white;
-}
-</style>
-
+      body {
+        background: white;
+      }
+    </style>
   </body>
-</html>s
+</html>

@@ -1,8 +1,4 @@
-/* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-plusplus */
-/* eslint-disable no-loop-func */
-/* eslint-disable no-nested-ternary */
 import { LitElement, html, css, TemplateResult } from 'lit';
 import { state, query, property } from 'lit/decorators.js';
 
@@ -15,6 +11,7 @@ import {
   lNodeTypeToSelection,
   nsdToJson,
   removeDataType,
+  LNodeDescription,
 } from '@openenergytools/scl-lib';
 
 import { TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
@@ -26,6 +23,9 @@ import { MdFab } from '@scopedelement/material-web/fab/MdFab.js';
 import { MdIcon } from '@scopedelement/material-web/icon/MdIcon.js';
 import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelect.js';
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
+import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
+
+import { cdClasses } from './constants.js';
 
 let lastLNodeTypeID = '';
 let lastSelection = {};
@@ -53,6 +53,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-dialog': MdDialog,
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton,
+    'md-circular-progress': MdCircularProgress,
   };
 
   @state()
@@ -101,6 +102,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   warningMsg: string = '';
 
+  @state()
+  loading = false;
+
   get lNodeTypes(): Element[] {
     return Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
@@ -124,12 +128,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;
-
-    const inserts = insertSelectedLNodeType(
-      this.doc,
-      this.nsdSelection,
-      lnClass
-    );
+    const inserts = insertSelectedLNodeType(this.doc, this.nsdSelection, {
+      class: lnClass,
+      data: this.treeUI.tree as LNodeDescription,
+    });
     if (inserts.length === 0) return; // no changes in LNodeType
 
     this.dispatchEvent(newEditEvent(inserts));
@@ -169,39 +171,107 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.saveTemplates();
   }
 
-  onLNodeTypeSelect() {
-    this.selectedLNodeType =
+  private mergeUserDOsIntoTree(
+    tree: any,
+    lNodeType: Element
+  ): LNodeDescription {
+    if (!lNodeType || !this.doc) return tree;
+    const result = { ...tree };
+    const doElements = Array.from(lNodeType.querySelectorAll(':scope > DO'));
+    const standardDONames = tree ? Object.keys(tree) : [];
+    doElements.forEach(doEl => {
+      const doName = doEl.getAttribute('name');
+      const doType = doEl.getAttribute('type');
+      if (!doName || !doType) return;
+      if (!standardDONames.includes(doName)) {
+        const doTypeElement = this.doc!.querySelector(
+          `:root > DataTypeTemplates > DOType[id="${doType}"]`
+        );
+        const cdc = doTypeElement?.getAttribute('cdc');
+        if (cdc && cdClasses.includes(cdc)) {
+          const cdcChildren = nsdToJson(cdc);
+          const cdcDescription = {
+            tagName: 'DataObject',
+            type: cdc,
+            descID: '',
+            presCond: 'O',
+            children: cdcChildren,
+          };
+          result[doName] = cdcDescription;
+        }
+      }
+    });
+    return result;
+  }
+
+  private getSelectedLNodeType(): Element | undefined {
+    return (
       this.doc?.querySelector(
         `:root > DataTypeTemplates > LNodeType[id="${this.lNodeTypeValue}"]`
-      ) ?? undefined;
+      ) ?? undefined
+    );
+  }
+
+  private buildLNodeTree(
+    selectedLNodeTypeClass: string,
+    lNodeType: Element
+  ): any {
+    const tree = nsdToJson(selectedLNodeTypeClass) as any;
+    if (!tree) return undefined;
+    return this.mergeUserDOsIntoTree(tree, lNodeType);
+  }
+
+  private checkLNodeTypeReferences(
+    selectedLNodeTypeID: string | null
+  ): boolean {
+    if (!this.doc || !selectedLNodeTypeID) return false;
+    return !!this.doc.querySelector(
+      `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
+    );
+  }
+
+  async onLNodeTypeSelect() {
+    this.loading = true;
+    // Let the browser render the loader before heavy work
+    await new Promise(resolve => {
+      setTimeout(resolve, 0);
+    });
+
+    this.selectedLNodeType = this.getSelectedLNodeType();
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
-    if (!selectedLNodeTypeClass) return;
 
-    const tree = nsdToJson(selectedLNodeTypeClass) as any;
-
-    if (!tree) {
-      this.showWarning(`Selected Ligical Node Class not defined in the NSD.`);
+    if (!selectedLNodeTypeClass || !this.selectedLNodeType) {
+      this.loading = false;
       return;
     }
 
-    const selectedLNodeTypeID = this.selectedLNodeType?.getAttribute('id');
-    const isReferenced = this.doc?.querySelector(
-      `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
+    const tree = this.buildLNodeTree(
+      selectedLNodeTypeClass,
+      this.selectedLNodeType
     );
+    if (!tree) {
+      this.loading = false;
+      this.showWarning('Selected Logical Node Class not defined in the NSD.');
+      return;
+    }
+
+    const selectedLNodeTypeID = this.selectedLNodeType.getAttribute('id');
+    const isReferenced = this.checkLNodeTypeReferences(selectedLNodeTypeID);
+
+    this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType);
+    this.treeUI.tree = tree;
+    this.treeUI.selection = this.lNodeTypeSelection;
+    this.filter = '';
+    this.requestUpdate();
+    this.treeUI.requestUpdate();
+    await this.updateComplete;
+    this.loading = false;
+
     if (isReferenced)
       this.showWarning(
         `The selected logical node type is referenced. This plugin should be used during specification only.`
       );
-
-    this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType!);
-
-    this.treeUI.tree = tree;
-    this.treeUI.selection = this.lNodeTypeSelection;
-
-    this.filter = '';
-    this.requestUpdate();
-    this.treeUI.requestUpdate();
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -254,23 +324,31 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   renderLNodeTypeSelector(): TemplateResult {
-    return html`<md-filled-select @change=${() => this.onLNodeTypeSelect()}>
-      ${Array.from(this.lNodeTypes).map(
-        lNodeType =>
-          html`<md-select-option value=${lNodeType.getAttribute('id')}
-            ><div slot="headline">
-              ${lNodeType.getAttribute('id')}
-            </div></md-select-option
-          >`
-      )}
-    </md-filled-select>`;
+    return html`
+      <md-filled-select @change=${() => this.onLNodeTypeSelect()}>
+        ${this.lNodeTypes.map(
+          lNodeType =>
+            html`<md-select-option value=${lNodeType.getAttribute('id')}>
+              <div slot="headline">${lNodeType.getAttribute('id')}</div>
+            </md-select-option>`
+        )}
+      </md-filled-select>
+    `;
+  }
+
+  renderLoader(): TemplateResult {
+    return this.loading
+      ? html`<md-circular-progress indeterminate></md-circular-progress>`
+      : html``;
   }
 
   render() {
     if (!this.doc) return html`<h1>Load SCL document first!</h1>`;
 
     return html`<div class="container">
-        ${this.renderLNodeTypeSelector()}
+        <div class="select-row">
+          ${this.renderLNodeTypeSelector()} ${this.renderLoader()}
+        </div>
         <tree-grid></tree-grid>
       </div>
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()} `;
@@ -324,7 +402,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       right: 32px;
     }
 
-    md-filled-select {
+    .select-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       position: absolute;
       left: 300px;
     }

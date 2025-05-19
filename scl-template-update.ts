@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { LitElement, html, css, TemplateResult } from 'lit';
-import { state, query, property } from 'lit/decorators.js';
+import { state, query } from 'lit/decorators.js';
 
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
@@ -27,10 +27,6 @@ import { MdCircularProgress } from '@scopedelement/material-web/progress/circula
 
 import { cdClasses } from './constants.js';
 
-let lastLNodeTypeID = '';
-let lastSelection = {};
-let lastFilter = '';
-
 function filterSelection(tree: any, selection: TreeSelection): TreeSelection {
   const filteredTree: TreeSelection = {};
   Object.keys(selection).forEach(key => {
@@ -56,24 +52,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-circular-progress': MdCircularProgress,
   };
 
-  @state()
-  doc?: XMLDocument;
-
-  @property({ type: Number })
-  docVersion!: number;
-
   @query('tree-grid')
   treeUI!: TreeGrid;
-
-  @state()
-  get filter(): string {
-    if (!this.treeUI) return '';
-    return this.treeUI.filter ?? '';
-  }
-
-  set filter(filter: string) {
-    this.treeUI.filter = filter;
-  }
 
   @query('md-filled-select')
   lNodeTypeUI?: MdFilledSelect;
@@ -83,9 +63,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @query('.dialog.choice') choiceDialog?: MdDialog;
 
   @state()
-  get lNodeTypeValue(): string {
-    return this.lNodeTypeUI?.value || lastLNodeTypeID;
-  }
+  doc?: XMLDocument;
 
   @state()
   addedLNode = '';
@@ -105,25 +83,50 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   loading = false;
 
+  @state()
+  get filter(): string {
+    if (!this.treeUI) return '';
+    return this.treeUI.filter ?? '';
+  }
+
+  set filter(filter: string) {
+    this.treeUI.filter = filter;
+  }
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated?.(changedProperties);
+    if (changedProperties.has('doc')) {
+      this.selectedLNodeType = undefined;
+      this.lNodeTypeSelection = undefined;
+      this.nsdSelection = undefined;
+      this.filter = '';
+      this.addedLNode = '';
+      this.treeUI.tree = {};
+      this.treeUI.selection = {};
+      this.lNodeTypeUI?.reset();
+    }
+  }
+
   get lNodeTypes(): Element[] {
     return Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
     );
   }
 
-  showWarning(msg: string): void {
+  private showWarning(msg: string): void {
     this.warningMsg = msg;
     this.warningDialog?.show();
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    lastSelection = this.lNodeTypeSelection ?? {};
-    lastFilter = this.filter;
-    lastLNodeTypeID = this.lNodeTypeValue;
+  private closeWarningDialog(): void {
+    this.warningDialog?.close();
   }
 
-  async saveTemplates() {
+  private closeChoiceDialog(): void {
+    this.choiceDialog?.close();
+  }
+
+  private async saveTemplates() {
     if (!this.doc || !this.nsdSelection) return;
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
@@ -148,12 +151,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     if (lnID) this.addedLNode = lnID;
   }
 
-  proceedWithDataLoss() {
-    this.choiceDialog?.close();
+  private proceedWithDataLoss() {
+    this.closeChoiceDialog();
     this.saveTemplates();
   }
 
-  updateTemplate(): void {
+  private handleUpdateTemplate(): void {
     if (!this.doc || !this.selectedLNodeType) return;
 
     this.nsdSelection = filterSelection(
@@ -204,10 +207,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     return result;
   }
 
-  private getSelectedLNodeType(): Element | undefined {
+  private getSelectedLNodeType(selected: string): Element | undefined {
     return (
       this.doc?.querySelector(
-        `:root > DataTypeTemplates > LNodeType[id="${this.lNodeTypeValue}"]`
+        `:root > DataTypeTemplates > LNodeType[id="${selected}"]`
       ) ?? undefined
     );
   }
@@ -230,14 +233,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     );
   }
 
-  async onLNodeTypeSelect() {
+  async onLNodeTypeSelect(e: Event): Promise<void> {
+    const target = e.target as MdFilledSelect;
     this.loading = true;
     // Let the browser render the loader before heavy work
     await new Promise(resolve => {
       setTimeout(resolve, 0);
     });
 
-    this.selectedLNodeType = this.getSelectedLNodeType();
+    this.selectedLNodeType = this.getSelectedLNodeType(target.value);
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
 
@@ -250,6 +254,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       selectedLNodeTypeClass,
       this.selectedLNodeType
     );
+
     if (!tree) {
       this.loading = false;
       this.showWarning('Selected Logical Node Class not defined in the NSD.');
@@ -270,7 +275,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
     if (isReferenced)
       this.showWarning(
-        `The selected logical node type is referenced. This plugin should be used during specification only.`
+        'The selected logical node type is referenced. This plugin should be used during specification only.'
       );
   }
 
@@ -285,7 +290,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-outlined-button
           class="button close"
           form="form-id"
-          @click="${() => this.warningDialog!.close()}"
+          @click="${this.closeWarningDialog}"
           >Close</md-outlined-button
         >
       </div>
@@ -303,7 +308,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-outlined-button
           class="button close"
           form="form-id"
-          @click="${() => this.choiceDialog!.close()}"
+          @click="${this.closeChoiceDialog}"
           >Cancel</md-outlined-button
         >
         <md-outlined-button
@@ -319,13 +324,13 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   renderFab(): TemplateResult {
     return html`<md-fab
       label="Update Logical Node Type"
-      @click=${() => this.updateTemplate()}
+      @click=${this.handleUpdateTemplate}
     ></md-fab>`;
   }
 
   renderLNodeTypeSelector(): TemplateResult {
     return html`
-      <md-filled-select @change=${() => this.onLNodeTypeSelect()}>
+      <md-filled-select @change=${this.onLNodeTypeSelect}>
         ${this.lNodeTypes.map(
           lNodeType =>
             html`<md-select-option value=${lNodeType.getAttribute('id')}>
@@ -377,6 +382,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       --md-list-container-color: var(--oscd-base2);
       --md-fab-container-color: var(--oscd-secondary);
       --md-dialog-container-color: var(--oscd-base3);
+      font-family: var(--oscd-theme-text-font, 'Roboto');
     }
 
     h1 {

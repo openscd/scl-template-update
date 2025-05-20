@@ -32,4 +32,4 @@ export const cdClasses = [
   'VSG',
   'VSS',
   'WYE',
-];
+] as const;

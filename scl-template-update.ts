@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { LitElement, html, css, TemplateResult } from 'lit';
-import { state, query } from 'lit/decorators.js';
+import { state, query, property } from 'lit/decorators.js';
 
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
@@ -14,7 +14,7 @@ import {
   LNodeDescription,
 } from '@openenergytools/scl-lib';
 
-import { TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
+import { Tree, TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
 
 import { MdFilledButton } from '@scopedelement/material-web/button/MdFilledButton.js';
 import { MdOutlinedButton } from '@scopedelement/material-web/button/MdOutlinedButton.js';
@@ -27,7 +27,7 @@ import { MdCircularProgress } from '@scopedelement/material-web/progress/circula
 
 import { cdClasses } from './constants.js';
 
-function filterSelection(tree: any, selection: TreeSelection): TreeSelection {
+function filterSelection(tree: Tree, selection: TreeSelection): TreeSelection {
   const filteredTree: TreeSelection = {};
   Object.keys(selection).forEach(key => {
     const isThere = !!tree[key];
@@ -52,21 +52,23 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-circular-progress': MdCircularProgress,
   };
 
+  @property()
+  doc?: XMLDocument;
+
   @query('tree-grid')
   treeUI!: TreeGrid;
 
   @query('md-filled-select')
   lNodeTypeUI?: MdFilledSelect;
 
-  @query('.dialog.warning') warningDialog?: MdDialog;
+  @query('#dialog-warning')
+  warningDialog?: MdDialog;
 
-  @query('.dialog.choice') choiceDialog?: MdDialog;
+  @query('#dialog-choice')
+  choiceDialog?: MdDialog;
 
   @state()
-  doc?: XMLDocument;
-
-  @state()
-  addedLNode = '';
+  lNodeTypes: Element[] = [];
 
   @state()
   selectedLNodeType?: Element;
@@ -84,33 +86,34 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   loading = false;
 
   @state()
-  get filter(): string {
-    if (!this.treeUI) return '';
-    return this.treeUI.filter ?? '';
-  }
-
-  set filter(filter: string) {
-    this.treeUI.filter = filter;
-  }
+  fabLabel: string = 'Update Logical Node Type';
 
   updated(changedProperties: Map<string, unknown>) {
     super.updated?.(changedProperties);
     if (changedProperties.has('doc')) {
-      this.selectedLNodeType = undefined;
-      this.lNodeTypeSelection = undefined;
-      this.nsdSelection = undefined;
-      this.filter = '';
-      this.addedLNode = '';
-      this.treeUI.tree = {};
-      this.treeUI.selection = {};
-      this.lNodeTypeUI?.reset();
+      this.resetUI(true);
+      this.getlNodeTypes();
     }
   }
 
-  get lNodeTypes(): Element[] {
-    return Array.from(
+  private async getlNodeTypes() {
+    this.lNodeTypes = Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
     );
+  }
+
+  private resetUI(full: boolean = false): void {
+    if (full) {
+      this.selectedLNodeType = undefined;
+      this.lNodeTypeSelection = undefined;
+      this.nsdSelection = undefined;
+      this.lNodeTypeUI?.reset();
+    }
+    if (this.treeUI) {
+      this.treeUI.tree = {};
+      this.treeUI.selection = {};
+      this.treeUI.requestUpdate();
+    }
   }
 
   private showWarning(msg: string): void {
@@ -147,8 +150,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.dispatchEvent(
       newEditEvent(remove, { squash: true, title: `Update ${lnID}` })
     );
+    this.getlNodeTypes();
 
-    if (lnID) this.addedLNode = lnID;
+    this.fabLabel = `${lnID} updated!`;
+    setTimeout(() => {
+      this.fabLabel = 'Update Logical Node Type';
+    }, 5000);
   }
 
   private proceedWithDataLoss() {
@@ -163,6 +170,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       this.treeUI.tree,
       this.treeUI.selection
     );
+
     if (
       JSON.stringify(this.treeUI.selection) !==
       JSON.stringify(this.nsdSelection)
@@ -174,6 +182,11 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.saveTemplates();
   }
 
+  /**
+   * Merges user-defined Data Objects in the NSD tree. This ensures that
+   * any custom or extra DOs present in the user's SCL are preserved
+   * in the tree, even if they are not part of the NSD definition.
+   */
   private mergeUserDOsIntoTree(
     tree: any,
     lNodeType: Element
@@ -191,7 +204,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
           `:root > DataTypeTemplates > DOType[id="${doType}"]`
         );
         const cdc = doTypeElement?.getAttribute('cdc');
-        if (cdc && cdClasses.includes(cdc)) {
+        if (cdc && (cdClasses as ReadonlyArray<string>).includes(cdc)) {
           const cdcChildren = nsdToJson(cdc);
           const cdcDescription = {
             tagName: 'DataObject',
@@ -241,6 +254,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       setTimeout(resolve, 0);
     });
 
+    this.resetUI(false);
+
     this.selectedLNodeType = this.getSelectedLNodeType(target.value);
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
@@ -267,7 +282,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType);
     this.treeUI.tree = tree;
     this.treeUI.selection = this.lNodeTypeSelection;
-    this.filter = '';
     this.requestUpdate();
     this.treeUI.requestUpdate();
     await this.updateComplete;
@@ -281,7 +295,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   // eslint-disable-next-line class-methods-use-this
   renderWarning(): TemplateResult {
-    return html`<md-dialog class="dialog warning">
+    return html`<md-dialog id="dialog-warning">
       <div slot="headline">Warning</div>
       <form slot="content" id="form-id" method="dialog">
         ${this.warningMsg}
@@ -298,8 +312,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   renderChoice(): TemplateResult {
-    return html`<md-dialog class="dialog choice">
-      <div slot="headline">Waring: Data loss</div>
+    return html`<md-dialog id="dialog-choice">
+      <div slot="headline">Warning: Data loss</div>
       <form slot="content" id="form-id" method="dialog">
         The logical node has additional data object not defined in the NSD.
         Updating will lead to loss of data! Do you still want to proceed?
@@ -322,8 +336,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   renderFab(): TemplateResult {
+    const disabled =
+      !this.treeUI?.tree || Object.keys(this.treeUI?.tree).length === 0;
     return html`<md-fab
-      label="Update Logical Node Type"
+      label="${this.fabLabel}"
+      class="update-lnode-type"
+      ?disabled="${disabled}"
       @click=${this.handleUpdateTemplate}
     ></md-fab>`;
   }
@@ -402,10 +420,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       margin: 12px;
     }
 
-    md-fab {
+    .update-lnode-type {
       position: fixed;
       bottom: 32px;
       right: 32px;
+    }
+
+    .update-lnode-type[disabled] {
+      pointer-events: none;
+      opacity: 0.6;
     }
 
     .select-row {

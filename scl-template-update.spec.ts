@@ -1,6 +1,6 @@
 /* eslint-disable import/no-duplicates */
 /* eslint-disable no-unused-expressions */
-import { fixture, expect, html } from '@open-wc/testing';
+import { fixture, expect, html, waitUntil } from '@open-wc/testing';
 import { restore, SinonSpy, spy } from 'sinon';
 
 import '@openenergytools/open-scd-core/open-scd.js';
@@ -194,6 +194,19 @@ describe('NsdTemplateUpdater', () => {
       });
 
       expect(listener).to.not.have.been.called;
+    });
+
+    it('shows the data loss dialog if (part of) selection is not in tree', async () => {
+      element.selectedLNodeType = element.doc?.querySelector('LNodeType')!;
+      element.treeUI.tree = { foo: {} };
+      element.treeUI.selection = { foo: {}, bar: {} };
+      element.treeUI.requestUpdate = () => {};
+      element.nsdSelection = { foo: {} };
+
+      (element as any).handleUpdateTemplate();
+      await waitUntil(() => element.choiceDialog?.open);
+      expect(element.choiceDialog?.open).to.be.true;
+      expect(element.choiceDialog).shadowDom.to.equalSnapshot();
     });
   });
 

@@ -99,7 +99,11 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private async getlNodeTypes() {
     this.lNodeTypes = Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
-    );
+    ).sort((a, b) => {
+      const aID = a.getAttribute('id') ?? '';
+      const bID = b.getAttribute('id') ?? '';
+      return aID.localeCompare(bID);
+    });
   }
 
   private resetUI(full: boolean = false): void {
@@ -195,6 +199,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     const result = { ...tree };
     const doElements = Array.from(lNodeType.querySelectorAll(':scope > DO'));
     const standardDONames = tree ? Object.keys(tree) : [];
+    const unsupportedDOs: string[] = [];
     doElements.forEach(doEl => {
       const doName = doEl.getAttribute('name');
       const doType = doEl.getAttribute('type');
@@ -214,9 +219,16 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
             children: cdcChildren,
           };
           result[doName] = cdcDescription;
+        } else {
+          unsupportedDOs.push(doName);
         }
       }
     });
+    if (unsupportedDOs.length > 0) {
+      this.showWarning(
+        'The selected logical node type contains user-defined data objects with unsupported CDCs.'
+      );
+    }
     return result;
   }
 

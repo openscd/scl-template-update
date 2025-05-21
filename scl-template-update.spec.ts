@@ -13,6 +13,7 @@ import {
   mmxuExceptSelection,
   mmxuSelection,
   nsdSpeced,
+  customDataObjectInvalidCDC,
 } from './scl-template-update.testfiles.js';
 import './scl-template-update.js';
 import NsdTemplateUpdated from './scl-template-update.js';
@@ -291,5 +292,43 @@ describe('NsdTemplateUpdater', () => {
         ((removes[0] as Remove).node as Element).getAttribute('id')
       ).to.equal('MMXU$oscd$_c53e78191fabefa3');
     }).timeout(5000);
+  });
+
+  describe('given a document with unsupported CDC', () => {
+    afterEach(restore);
+    beforeEach(async () => {
+      openSCD.addEventListener('oscd-edit-v2', () => {});
+      const doc = new DOMParser().parseFromString(
+        customDataObjectInvalidCDC,
+        'application/xml'
+      );
+      openSCD.dispatchEvent(newOpenEvent(doc, 'SomeDoc'));
+      await new Promise(res => {
+        setTimeout(res, 200);
+      });
+    });
+
+    it('shows a warning dialog when a lnode type has user defined DOs with unsupported CDC', async () => {
+      const event = {
+        target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
+      } as unknown as Event;
+      element.onLNodeTypeSelect(event);
+      await new Promise(res => {
+        setTimeout(res, 0);
+      });
+
+      element.treeUI.selection = mmxuSelection;
+      await element.updateComplete;
+
+      (element.shadowRoot?.querySelector('md-fab') as HTMLElement).click();
+      await element.updateComplete;
+
+      expect(element.warningDialog?.getAttribute('open')).to.not.be.null;
+      expect(
+        element.warningDialog?.querySelector('form')?.textContent
+      ).to.include(
+        'The selected logical node type contains user-defined data objects with unsupported CDCs.'
+      );
+    });
   });
 });

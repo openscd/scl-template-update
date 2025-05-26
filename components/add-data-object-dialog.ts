@@ -41,9 +41,6 @@ export class AddDataObjectDialog extends ScopedElementsMixin(LitElement) {
   @property({ type: Array })
   cdClasses: string[] = [];
 
-  @property()
-  lNodeClass: string = '';
-
   @state()
   open = false;
 
@@ -129,8 +126,8 @@ export class AddDataObjectDialog extends ScopedElementsMixin(LitElement) {
 
   render() {
     return html`
-      <md-dialog>
-        <div slot="headline">Add Data Object to ${this.lNodeClass}</div>
+      <md-dialog @closed=${this.close}>
+        <div slot="headline">Add Data Object</div>
         <form
           slot="content"
           id="add-data-object"

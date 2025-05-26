@@ -451,7 +451,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
       <add-data-object-dialog
         .cdClasses=${cdClasses}
-        .lNodeClass=${this.selectedLNodeType?.getAttribute('lnClass')}
         @add-data-object=${this.handleAddDataObject}
       ></add-data-object-dialog>`;
   }

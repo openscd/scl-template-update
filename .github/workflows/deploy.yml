@@ -2,7 +2,7 @@ name: Deploy
 on:
   push:
     branches:
-      - task/add-build-workflow
+      - main
 
 jobs:
   deploy:

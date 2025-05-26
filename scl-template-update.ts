@@ -25,6 +25,7 @@ import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelec
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 
+import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { cdClasses } from './constants.js';
 
 function filterSelection(tree: Tree, selection: TreeSelection): TreeSelection {
@@ -50,6 +51,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton,
     'md-circular-progress': MdCircularProgress,
+    'add-data-object-dialog': AddDataObjectDialog,
   };
 
   @property()
@@ -66,6 +68,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   @query('#dialog-choice')
   choiceDialog?: MdDialog;
+
+  @query('add-data-object-dialog')
+  addDataObjectDialog!: HTMLElement & {
+    show: () => void;
+    validateForm: () => boolean;
+  };
 
   @state()
   lNodeTypes: Element[] = [];
@@ -88,6 +96,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   fabLabel: string = 'Update Logical Node Type';
 
+  @state()
+  disableAddDataObjectButton = true;
+
   updated(changedProperties: Map<string, unknown>) {
     super.updated?.(changedProperties);
     if (changedProperties.has('doc')) {
@@ -108,12 +119,17 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       this.lNodeTypeSelection = undefined;
       this.nsdSelection = undefined;
       this.lNodeTypeUI?.reset();
+      this.disableAddDataObjectButton = true;
     }
     if (this.treeUI) {
       this.treeUI.tree = {};
       this.treeUI.selection = {};
       this.treeUI.requestUpdate();
     }
+  }
+
+  private async openAddDataObjectDialog() {
+    this.addDataObjectDialog?.show();
   }
 
   private showWarning(msg: string): void {
@@ -271,6 +287,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   async onLNodeTypeSelect(e: Event): Promise<void> {
+    this.disableAddDataObjectButton = true;
     const target = e.target as MdFilledSelect;
     this.loading = true;
     // Let the browser render the loader before heavy work
@@ -301,6 +318,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
+    this.disableAddDataObjectButton = false;
     const selectedLNodeTypeID = this.selectedLNodeType.getAttribute('id');
     const isReferenced = this.checkLNodeTypeReferences(selectedLNodeTypeID);
 
@@ -316,6 +334,35 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       this.showWarning(
         'The selected logical node type is referenced. This plugin should be used during specification only.'
       );
+  }
+
+  private createDataObject(
+    cdcType: (typeof cdClasses)[number],
+    doName: string
+  ): void {
+    const cdcChildren = nsdToJson(cdcType);
+
+    const cdcDescription = {
+      tagName: 'DataObject',
+      type: cdcType,
+      descID: '',
+      presCond: 'O',
+      children: cdcChildren,
+    };
+
+    Object.assign(this.treeUI.tree, {
+      [doName]: cdcDescription,
+    });
+    this.treeUI.requestUpdate();
+  }
+
+  private async handleAddDataObject(e: CustomEvent): Promise<void> {
+    e.preventDefault();
+    const { cdcType, doName } = e.detail;
+
+    if (!this.addDataObjectDialog?.validateForm()) return;
+
+    this.createDataObject(cdcType as (typeof cdClasses)[number], doName);
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -371,8 +418,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     ></md-fab>`;
   }
 
-  renderLNodeTypeSelector(): TemplateResult {
-    return html`
+  renderLNodeTypeControls(): TemplateResult {
+    return html` <div class="controls-row">
+      <md-outlined-button
+        ?disabled=${this.disableAddDataObjectButton}
+        @click=${this.openAddDataObjectDialog}
+      >
+        <md-icon slot="icon">add</md-icon>
+        Add Data Object
+      </md-outlined-button>
       <md-filled-select @change=${this.onLNodeTypeSelect}>
         ${this.lNodeTypes.map(
           lNodeType =>
@@ -381,25 +435,25 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
             </md-select-option>`
         )}
       </md-filled-select>
-    `;
-  }
-
-  renderLoader(): TemplateResult {
-    return this.loading
-      ? html`<md-circular-progress indeterminate></md-circular-progress>`
-      : html``;
+      ${this.loading
+        ? html`<md-circular-progress indeterminate></md-circular-progress>`
+        : ``}
+    </div>`;
   }
 
   render() {
     if (!this.doc) return html`<h1>Load SCL document first!</h1>`;
 
     return html`<div class="container">
-        <div class="select-row">
-          ${this.renderLNodeTypeSelector()} ${this.renderLoader()}
-        </div>
+        ${this.renderLNodeTypeControls()}
         <tree-grid></tree-grid>
       </div>
-      ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()} `;
+      ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
+      <add-data-object-dialog
+        .cdClasses=${cdClasses}
+        .lNodeClass=${this.selectedLNodeType?.getAttribute('lnClass')}
+        @add-data-object=${this.handleAddDataObject}
+      ></add-data-object-dialog>`;
   }
 
   static styles = css`
@@ -436,6 +490,14 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       line-height: 48px;
     }
 
+    md-outlined-button {
+      text-transform: uppercase;
+    }
+
+    md-icon {
+      font-family: var(--oscd-theme-icon-font, 'Material Symbols Outlined');
+    }
+
     .button.close {
       --md-outlined-button-label-text-color: var(--oscd-accent-red);
       --md-outlined-button-hover-label-text-color: var(--oscd-accent-red);
@@ -456,12 +518,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       opacity: 0.6;
     }
 
-    .select-row {
+    .controls-row {
       display: flex;
-      align-items: center;
       gap: 12px;
-      position: absolute;
-      left: 300px;
+      margin-bottom: 12px;
     }
   `;
 }

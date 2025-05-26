@@ -1,10 +1,10 @@
 /* eslint-disable import/no-duplicates */
 /* eslint-disable no-unused-expressions */
-import { fixture, expect, html } from '@open-wc/testing';
+import { fixture, expect, html, waitUntil } from '@open-wc/testing';
 import { restore, spy } from 'sinon';
 import '@openenergytools/open-scd-core/open-scd.js';
 import { newOpenEvent } from '@openenergytools/open-scd-core';
-import { extension, lln0Selection, mmxuExceptSelection, mmxuSelection, nsdSpeced, } from './scl-template-update.testfiles.js';
+import { extension, lln0Selection, mmxuExceptSelection, mmxuSelection, nsdSpeced, customDataObjectInvalidCDC, } from './scl-template-update.testfiles.js';
 import './scl-template-update.js';
 const plugins = {
     editor: [
@@ -37,7 +37,7 @@ describe('NsdTemplateUpdater', () => {
         expect((_b = element.shadowRoot) === null || _b === void 0 ? void 0 : _b.querySelector('tree-grid')).to.not.exist;
         expect((_c = element.shadowRoot) === null || _c === void 0 ? void 0 : _c.querySelector('md-fab')).to.not.exist;
     });
-    describe('given a nsd speced document', () => {
+    describe('given a nsd specced document', () => {
         let listener;
         afterEach(restore);
         beforeEach(async () => {
@@ -52,15 +52,17 @@ describe('NsdTemplateUpdater', () => {
         it('displays an action button', () => { var _a; return expect((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).to.exist; });
         it('updates MMXU on action button click', async () => {
             var _a;
-            element.lNodeTypeUI.value = `MMXU$oscd$_c53e78191fabefa3`;
-            element.onLNodeTypeSelect();
-            await element.updateComplete;
+            const event = {
+                target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
+            };
+            element.onLNodeTypeSelect(event);
+            await new Promise(res => {
+                setTimeout(res, 0);
+            });
             element.treeUI.selection = mmxuSelection;
             await element.updateComplete;
             ((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).click();
-            await new Promise(res => {
-                setTimeout(res, 200);
-            });
+            await element.updateComplete;
             const inserts = listener.args[0][0].detail.edit;
             const removes = listener.args[1][0].detail.edit;
             expect(inserts).to.have.lengthOf(5);
@@ -72,12 +74,16 @@ describe('NsdTemplateUpdater', () => {
             expect(inserts[4].node.getAttribute('id')).to.equal('stVal$oscd$_2ff6286b1710bcc1');
             expect(removes[0].node.getAttribute('id')).to.equal('MMXU$oscd$_c53e78191fabefa3');
             expect(removes[1].node.getAttribute('id')).to.equal('A$oscd$_41824603f63b26ac');
-        });
+        }).timeout(5000);
         it('updates LLN0 on action button click', async () => {
             var _a;
-            element.lNodeTypeUI.value = `LLN0$oscd$_85c7ffbe25d80e63`;
-            element.onLNodeTypeSelect();
-            await element.updateComplete;
+            const event = {
+                target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
+            };
+            element.onLNodeTypeSelect(event);
+            await new Promise(res => {
+                setTimeout(res, 0);
+            });
             element.treeUI.selection = lln0Selection; // change selection
             await element.updateComplete;
             ((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).click();
@@ -102,11 +108,13 @@ describe('NsdTemplateUpdater', () => {
             expect(removes[2].node.getAttribute('id')).to.equal('Oper$oscd$_4974a5c5ec541314');
             expect(removes[3].node.getAttribute('id')).to.equal('SBOw$oscd$_4974a5c5ec541314');
             expect(removes[4].node.getAttribute('id')).to.equal('ctlModel$oscd$_f80264355419aeff');
-        });
+        }).timeout(5000);
         it('does not update with same selection', async () => {
             var _a;
-            element.lNodeTypeUI.value = `LLN0$oscd$_85c7ffbe25d80e63`;
-            element.onLNodeTypeSelect();
+            const event = {
+                target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
+            };
+            element.onLNodeTypeSelect(event);
             await element.updateComplete;
             ((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).click();
             await new Promise(res => {
@@ -114,8 +122,20 @@ describe('NsdTemplateUpdater', () => {
             });
             expect(listener).to.not.have.been.called;
         });
+        it('shows the data loss dialog if (part of) selection is not in tree', async () => {
+            var _a, _b;
+            element.selectedLNodeType = (_a = element.doc) === null || _a === void 0 ? void 0 : _a.querySelector('LNodeType');
+            element.treeUI.tree = { foo: {} };
+            element.treeUI.selection = { foo: {}, bar: {} };
+            element.treeUI.requestUpdate = () => { };
+            element.nsdSelection = { foo: {} };
+            element.handleUpdateTemplate();
+            await waitUntil(() => { var _a; return (_a = element.choiceDialog) === null || _a === void 0 ? void 0 : _a.open; });
+            expect((_b = element.choiceDialog) === null || _b === void 0 ? void 0 : _b.open).to.be.true;
+            expect(element.choiceDialog).shadowDom.to.equalSnapshot();
+        });
     });
-    describe('given a non nsd speced document', () => {
+    describe('given a non nsd specced document', () => {
         let listener;
         afterEach(restore);
         beforeEach(async () => {
@@ -129,8 +149,8 @@ describe('NsdTemplateUpdater', () => {
         });
         it('does not load non NSD ln classes', async () => {
             var _a;
-            element.lNodeTypeUI.value = `invalidLnClass`;
-            element.onLNodeTypeSelect();
+            const event = { target: { value: 'invalidLnClass' } };
+            element.onLNodeTypeSelect(event);
             await new Promise(res => {
                 setTimeout(res, 50);
             });
@@ -139,8 +159,10 @@ describe('NsdTemplateUpdater', () => {
         });
         it('notifies with LNodeType is referenced', async () => {
             var _a, _b, _c;
-            element.lNodeTypeUI.value = `LLN0$oscd$_85c7ffbe25d80e63`;
-            element.onLNodeTypeSelect();
+            const event = {
+                target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
+            };
+            element.onLNodeTypeSelect(event);
             await new Promise(res => {
                 setTimeout(res, 200);
             });
@@ -149,27 +171,54 @@ describe('NsdTemplateUpdater', () => {
         });
         it('updates MMXU on action button click', async () => {
             var _a, _b;
-            element.lNodeTypeUI.value = `MMXU$oscd$_c53e78191fabefa3`;
-            element.onLNodeTypeSelect();
-            await element.updateComplete;
+            const event = {
+                target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
+            };
+            element.onLNodeTypeSelect(event);
+            await new Promise(res => {
+                setTimeout(res, 0);
+            });
             element.treeUI.selection = mmxuExceptSelection;
             await element.updateComplete;
             ((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).click();
-            await new Promise(res => {
-                setTimeout(res, 200);
-            });
+            await element.updateComplete;
             ((_b = element.choiceDialog) === null || _b === void 0 ? void 0 : _b.querySelector('.button.proceed')).click();
-            await new Promise(res => {
-                setTimeout(res, 200);
-            });
+            await element.updateComplete;
             const inserts = listener.args[0][0].detail.edit;
             const removes = listener.args[1][0].detail.edit;
-            expect(inserts).to.have.lengthOf(3);
+            expect(inserts).to.have.lengthOf(5);
             expect(removes).to.have.lengthOf(1);
-            expect(inserts[0].node.getAttribute('id')).to.equal('MMXU$oscd$_e244ae9c80495691');
+            expect(inserts[0].node.getAttribute('id')).to.equal('MMXU$oscd$_3027abc2662ec638');
             expect(inserts[1].node.getAttribute('id')).to.equal('Beh$oscd$_954939784529ca3d');
-            expect(inserts[2].node.getAttribute('id')).to.equal('stVal$oscd$_2ff6286b1710bcc1');
+            expect(inserts[2].node.getAttribute('id')).to.equal('phsB$oscd$_65ee65af9248ae5d');
             expect(removes[0].node.getAttribute('id')).to.equal('MMXU$oscd$_c53e78191fabefa3');
+        }).timeout(5000);
+    });
+    describe('given a document with unsupported CDC', () => {
+        afterEach(restore);
+        beforeEach(async () => {
+            openSCD.addEventListener('oscd-edit-v2', () => { });
+            const doc = new DOMParser().parseFromString(customDataObjectInvalidCDC, 'application/xml');
+            openSCD.dispatchEvent(newOpenEvent(doc, 'SomeDoc'));
+            await new Promise(res => {
+                setTimeout(res, 200);
+            });
+        });
+        it('shows a warning dialog when a lnode type has user defined DOs with unsupported CDC', async () => {
+            var _a, _b, _c, _d;
+            const event = {
+                target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
+            };
+            element.onLNodeTypeSelect(event);
+            await new Promise(res => {
+                setTimeout(res, 0);
+            });
+            element.treeUI.selection = mmxuSelection;
+            await element.updateComplete;
+            ((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('md-fab')).click();
+            await element.updateComplete;
+            expect((_b = element.warningDialog) === null || _b === void 0 ? void 0 : _b.getAttribute('open')).to.not.be.null;
+            expect((_d = (_c = element.warningDialog) === null || _c === void 0 ? void 0 : _c.querySelector('form')) === null || _d === void 0 ? void 0 : _d.textContent).to.include('The selected logical node type contains user-defined data objects with unsupported CDCs.');
         });
     });
 });

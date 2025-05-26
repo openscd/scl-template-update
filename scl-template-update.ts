@@ -99,11 +99,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private async getlNodeTypes() {
     this.lNodeTypes = Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
-    ).sort((a, b) => {
-      const aID = a.getAttribute('id') ?? '';
-      const bID = b.getAttribute('id') ?? '';
-      return aID.localeCompare(bID);
-    });
+    );
   }
 
   private resetUI(full: boolean = false): void {
@@ -142,6 +138,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       class: lnClass,
       data: this.treeUI.tree as LNodeDescription,
     });
+
     if (inserts.length === 0) return; // no changes in LNodeType
 
     this.dispatchEvent(newEditEvent(inserts));
@@ -156,10 +153,25 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     );
     this.getlNodeTypes();
 
-    this.fabLabel = `${lnID} updated!`;
-    setTimeout(() => {
-      this.fabLabel = 'Update Logical Node Type';
-    }, 5000);
+    const updatedLNodeType = inserts.find(
+      insert => (insert.node as Element).tagName === 'LNodeType'
+    )?.node as Element;
+
+    if (updatedLNodeType) {
+      const updatedLNodeTypeID = updatedLNodeType.getAttribute('id');
+      this.selectedLNodeType = updatedLNodeType;
+      await this.updateComplete;
+
+      if (this.lNodeTypeUI && updatedLNodeType) {
+        this.lNodeTypeUI.value = updatedLNodeType.getAttribute('id') ?? '';
+      }
+
+      this.fabLabel = `${updatedLNodeTypeID} updated!`;
+
+      setTimeout(() => {
+        this.fabLabel = 'Update Logical Node Type';
+      }, 5000);
+    }
   }
 
   private proceedWithDataLoss() {
@@ -269,6 +281,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.resetUI(false);
 
     this.selectedLNodeType = this.getSelectedLNodeType(target.value);
+
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
 

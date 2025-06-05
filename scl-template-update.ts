@@ -1,8 +1,4 @@
-/* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-plusplus */
-/* eslint-disable no-loop-func */
-/* eslint-disable no-nested-ternary */
 import { LitElement, html, css, TemplateResult } from 'lit';
 import { state, query, property } from 'lit/decorators.js';
 
@@ -15,9 +11,10 @@ import {
   lNodeTypeToSelection,
   nsdToJson,
   removeDataType,
+  LNodeDescription,
 } from '@openenergytools/scl-lib';
 
-import { TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
+import { Tree, TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
 
 import { MdFilledButton } from '@scopedelement/material-web/button/MdFilledButton.js';
 import { MdOutlinedButton } from '@scopedelement/material-web/button/MdOutlinedButton.js';
@@ -26,12 +23,11 @@ import { MdFab } from '@scopedelement/material-web/fab/MdFab.js';
 import { MdIcon } from '@scopedelement/material-web/icon/MdIcon.js';
 import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelect.js';
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
+import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 
-let lastLNodeTypeID = '';
-let lastSelection = {};
-let lastFilter = '';
+import { cdClasses } from './constants.js';
 
-function filterSelection(tree: any, selection: TreeSelection): TreeSelection {
+function filterSelection(tree: Tree, selection: TreeSelection): TreeSelection {
   const filteredTree: TreeSelection = {};
   Object.keys(selection).forEach(key => {
     const isThere = !!tree[key];
@@ -53,41 +49,26 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-dialog': MdDialog,
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton,
+    'md-circular-progress': MdCircularProgress,
   };
 
-  @state()
+  @property()
   doc?: XMLDocument;
-
-  @property({ type: Number })
-  docVersion!: number;
 
   @query('tree-grid')
   treeUI!: TreeGrid;
 
-  @state()
-  get filter(): string {
-    if (!this.treeUI) return '';
-    return this.treeUI.filter ?? '';
-  }
-
-  set filter(filter: string) {
-    this.treeUI.filter = filter;
-  }
-
   @query('md-filled-select')
   lNodeTypeUI?: MdFilledSelect;
 
-  @query('.dialog.warning') warningDialog?: MdDialog;
+  @query('#dialog-warning')
+  warningDialog?: MdDialog;
 
-  @query('.dialog.choice') choiceDialog?: MdDialog;
-
-  @state()
-  get lNodeTypeValue(): string {
-    return this.lNodeTypeUI?.value || lastLNodeTypeID;
-  }
+  @query('#dialog-choice')
+  choiceDialog?: MdDialog;
 
   @state()
-  addedLNode = '';
+  lNodeTypes: Element[] = [];
 
   @state()
   selectedLNodeType?: Element;
@@ -101,35 +82,63 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   warningMsg: string = '';
 
-  get lNodeTypes(): Element[] {
-    return Array.from(
+  @state()
+  loading = false;
+
+  @state()
+  fabLabel: string = 'Update Logical Node Type';
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated?.(changedProperties);
+    if (changedProperties.has('doc')) {
+      this.resetUI(true);
+      this.getlNodeTypes();
+    }
+  }
+
+  private async getlNodeTypes() {
+    this.lNodeTypes = Array.from(
       this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
     );
   }
 
-  showWarning(msg: string): void {
+  private resetUI(full: boolean = false): void {
+    if (full) {
+      this.selectedLNodeType = undefined;
+      this.lNodeTypeSelection = undefined;
+      this.nsdSelection = undefined;
+      this.lNodeTypeUI?.reset();
+    }
+    if (this.treeUI) {
+      this.treeUI.tree = {};
+      this.treeUI.selection = {};
+      this.treeUI.requestUpdate();
+    }
+  }
+
+  private showWarning(msg: string): void {
     this.warningMsg = msg;
     this.warningDialog?.show();
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    lastSelection = this.lNodeTypeSelection ?? {};
-    lastFilter = this.filter;
-    lastLNodeTypeID = this.lNodeTypeValue;
+  private closeWarningDialog(): void {
+    this.warningDialog?.close();
   }
 
-  async saveTemplates() {
+  private closeChoiceDialog(): void {
+    this.choiceDialog?.close();
+  }
+
+  private async saveTemplates() {
     if (!this.doc || !this.nsdSelection) return;
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;
+    const inserts = insertSelectedLNodeType(this.doc, this.nsdSelection, {
+      class: lnClass,
+      data: this.treeUI.tree as LNodeDescription,
+    });
 
-    const inserts = insertSelectedLNodeType(
-      this.doc,
-      this.nsdSelection,
-      lnClass
-    );
     if (inserts.length === 0) return; // no changes in LNodeType
 
     this.dispatchEvent(newEditEvent(inserts));
@@ -142,22 +151,42 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.dispatchEvent(
       newEditEvent(remove, { squash: true, title: `Update ${lnID}` })
     );
+    this.getlNodeTypes();
 
-    if (lnID) this.addedLNode = lnID;
+    const updatedLNodeType = inserts.find(
+      insert => (insert.node as Element).tagName === 'LNodeType'
+    )?.node as Element;
+
+    if (updatedLNodeType) {
+      const updatedLNodeTypeID = updatedLNodeType.getAttribute('id');
+      this.selectedLNodeType = updatedLNodeType;
+      await this.updateComplete;
+
+      if (this.lNodeTypeUI && updatedLNodeType) {
+        this.lNodeTypeUI.value = updatedLNodeType.getAttribute('id') ?? '';
+      }
+
+      this.fabLabel = `${updatedLNodeTypeID} updated!`;
+
+      setTimeout(() => {
+        this.fabLabel = 'Update Logical Node Type';
+      }, 5000);
+    }
   }
 
-  proceedWithDataLoss() {
-    this.choiceDialog?.close();
+  private proceedWithDataLoss() {
+    this.closeChoiceDialog();
     this.saveTemplates();
   }
 
-  updateTemplate(): void {
+  private handleUpdateTemplate(): void {
     if (!this.doc || !this.selectedLNodeType) return;
 
     this.nsdSelection = filterSelection(
       this.treeUI.tree,
       this.treeUI.selection
     );
+
     if (
       JSON.stringify(this.treeUI.selection) !==
       JSON.stringify(this.nsdSelection)
@@ -169,44 +198,130 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.saveTemplates();
   }
 
-  onLNodeTypeSelect() {
-    this.selectedLNodeType =
+  /**
+   * Merges user-defined Data Objects in the NSD tree. This ensures that
+   * any custom or extra DOs present in the user's SCL are preserved
+   * in the tree, even if they are not part of the NSD definition.
+   */
+  private mergeUserDOsIntoTree(
+    tree: any,
+    lNodeType: Element
+  ): { tree: LNodeDescription; unsupportedDOs: string[] } {
+    if (!lNodeType || !this.doc) return { tree, unsupportedDOs: [] };
+    const result = { ...tree };
+    const doElements = Array.from(lNodeType.querySelectorAll(':scope > DO'));
+    const standardDONames = tree ? Object.keys(tree) : [];
+    const unsupportedDOs: string[] = [];
+    doElements.forEach(doEl => {
+      const doName = doEl.getAttribute('name');
+      const doType = doEl.getAttribute('type');
+      if (!doName || !doType) return;
+      if (!standardDONames.includes(doName)) {
+        const doTypeElement = this.doc!.querySelector(
+          `:root > DataTypeTemplates > DOType[id="${doType}"]`
+        );
+        const cdc = doTypeElement?.getAttribute('cdc');
+        const isCdcSupported =
+          cdc && (cdClasses as ReadonlyArray<string>).includes(cdc);
+        if (isCdcSupported) {
+          const cdcChildren = nsdToJson(cdc);
+          const cdcDescription = {
+            tagName: 'DataObject',
+            type: cdc,
+            descID: '',
+            presCond: 'O',
+            children: cdcChildren,
+          };
+          result[doName] = cdcDescription;
+        } else {
+          unsupportedDOs.push(doName);
+        }
+      }
+    });
+    return { tree: result, unsupportedDOs };
+  }
+
+  private getSelectedLNodeType(selected: string): Element | undefined {
+    return (
       this.doc?.querySelector(
-        `:root > DataTypeTemplates > LNodeType[id="${this.lNodeTypeValue}"]`
-      ) ?? undefined;
+        `:root > DataTypeTemplates > LNodeType[id="${selected}"]`
+      ) ?? undefined
+    );
+  }
+
+  private buildLNodeTree(
+    selectedLNodeTypeClass: string,
+    lNodeType: Element
+  ): { tree: any; unsupportedDOs: string[] } {
+    const tree = nsdToJson(selectedLNodeTypeClass) as any;
+    if (!tree) return { tree: undefined, unsupportedDOs: [] };
+    return this.mergeUserDOsIntoTree(tree, lNodeType);
+  }
+
+  private isLNodeTypeReferenced(selectedLNodeTypeID: string | null): boolean {
+    if (!this.doc || !selectedLNodeTypeID) return false;
+    return !!this.doc.querySelector(
+      `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
+    );
+  }
+
+  async onLNodeTypeSelect(e: Event): Promise<void> {
+    const target = e.target as MdFilledSelect;
+    this.loading = true;
+    // Let the browser render the loader before heavy work
+    await new Promise(resolve => {
+      setTimeout(resolve, 0);
+    });
+
+    this.resetUI(false);
+
+    this.selectedLNodeType = this.getSelectedLNodeType(target.value);
+
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
-    if (!selectedLNodeTypeClass) return;
 
-    const tree = nsdToJson(selectedLNodeTypeClass) as any;
-
-    if (!tree) {
-      this.showWarning(`Selected Ligical Node Class not defined in the NSD.`);
+    if (!selectedLNodeTypeClass || !this.selectedLNodeType) {
+      this.loading = false;
       return;
     }
 
-    const selectedLNodeTypeID = this.selectedLNodeType?.getAttribute('id');
-    const isReferenced = this.doc?.querySelector(
-      `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
+    const { tree, unsupportedDOs } = this.buildLNodeTree(
+      selectedLNodeTypeClass,
+      this.selectedLNodeType
     );
-    if (isReferenced)
+
+    if (!tree) {
+      this.loading = false;
+      this.showWarning('Selected Logical Node Class not defined in the NSD.');
+      return;
+    }
+
+    if (unsupportedDOs.length > 0) {
       this.showWarning(
-        `The selected logical node type is referenced. This plugin should be used during specification only.`
+        'The selected logical node type contains user-defined data objects with unsupported CDCs.'
       );
+    }
 
-    this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType!);
+    const selectedLNodeTypeID = this.selectedLNodeType.getAttribute('id');
+    const isReferenced = this.isLNodeTypeReferenced(selectedLNodeTypeID);
 
+    this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType);
     this.treeUI.tree = tree;
     this.treeUI.selection = this.lNodeTypeSelection;
-
-    this.filter = '';
     this.requestUpdate();
     this.treeUI.requestUpdate();
+    await this.updateComplete;
+    this.loading = false;
+
+    if (isReferenced)
+      this.showWarning(
+        'The selected logical node type is referenced. This plugin should be used during specification only.'
+      );
   }
 
   // eslint-disable-next-line class-methods-use-this
   renderWarning(): TemplateResult {
-    return html`<md-dialog class="dialog warning">
+    return html`<md-dialog id="dialog-warning">
       <div slot="headline">Warning</div>
       <form slot="content" id="form-id" method="dialog">
         ${this.warningMsg}
@@ -215,7 +330,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-outlined-button
           class="button close"
           form="form-id"
-          @click="${() => this.warningDialog!.close()}"
+          @click="${this.closeWarningDialog}"
           >Close</md-outlined-button
         >
       </div>
@@ -223,8 +338,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   renderChoice(): TemplateResult {
-    return html`<md-dialog class="dialog choice">
-      <div slot="headline">Waring: Data loss</div>
+    return html`<md-dialog id="dialog-choice">
+      <div slot="headline">Warning: Data loss</div>
       <form slot="content" id="form-id" method="dialog">
         The logical node has additional data object not defined in the NSD.
         Updating will lead to loss of data! Do you still want to proceed?
@@ -233,7 +348,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-outlined-button
           class="button close"
           form="form-id"
-          @click="${() => this.choiceDialog!.close()}"
+          @click="${this.closeChoiceDialog}"
           >Cancel</md-outlined-button
         >
         <md-outlined-button
@@ -247,30 +362,42 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   renderFab(): TemplateResult {
+    const disabled =
+      !this.treeUI?.tree || Object.keys(this.treeUI?.tree).length === 0;
     return html`<md-fab
-      label="Update Logical Node Type"
-      @click=${() => this.updateTemplate()}
+      label="${this.fabLabel}"
+      class="update-lnode-type"
+      ?disabled="${disabled}"
+      @click=${this.handleUpdateTemplate}
     ></md-fab>`;
   }
 
   renderLNodeTypeSelector(): TemplateResult {
-    return html`<md-filled-select @change=${() => this.onLNodeTypeSelect()}>
-      ${Array.from(this.lNodeTypes).map(
-        lNodeType =>
-          html`<md-select-option value=${lNodeType.getAttribute('id')}
-            ><div slot="headline">
-              ${lNodeType.getAttribute('id')}
-            </div></md-select-option
-          >`
-      )}
-    </md-filled-select>`;
+    return html`
+      <md-filled-select @change=${this.onLNodeTypeSelect}>
+        ${this.lNodeTypes.map(
+          lNodeType =>
+            html`<md-select-option value=${lNodeType.getAttribute('id')}>
+              <div slot="headline">${lNodeType.getAttribute('id')}</div>
+            </md-select-option>`
+        )}
+      </md-filled-select>
+    `;
+  }
+
+  renderLoader(): TemplateResult {
+    return this.loading
+      ? html`<md-circular-progress indeterminate></md-circular-progress>`
+      : html``;
   }
 
   render() {
     if (!this.doc) return html`<h1>Load SCL document first!</h1>`;
 
     return html`<div class="container">
-        ${this.renderLNodeTypeSelector()}
+        <div class="select-row">
+          ${this.renderLNodeTypeSelector()} ${this.renderLoader()}
+        </div>
         <tree-grid></tree-grid>
       </div>
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()} `;
@@ -299,6 +426,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       --md-list-container-color: var(--oscd-base2);
       --md-fab-container-color: var(--oscd-secondary);
       --md-dialog-container-color: var(--oscd-base3);
+      font-family: var(--oscd-theme-text-font, 'Roboto');
     }
 
     h1 {
@@ -318,13 +446,21 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       margin: 12px;
     }
 
-    md-fab {
+    .update-lnode-type {
       position: fixed;
       bottom: 32px;
       right: 32px;
     }
 
-    md-filled-select {
+    .update-lnode-type[disabled] {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .select-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       position: absolute;
       left: 300px;
     }

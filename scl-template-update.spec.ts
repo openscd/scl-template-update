@@ -306,6 +306,12 @@ describe('NsdTemplateUpdater', () => {
       await new Promise(res => {
         setTimeout(res, 200);
       });
+      await element.updateComplete;
+      const treeUI = element.shadowRoot?.querySelector('tree-grid') as any;
+      if (treeUI) {
+        treeUI.tree = {};
+        treeUI.requestUpdate = () => {};
+      }
     });
 
     it('shows a warning dialog when a lnode type has user defined DOs with unsupported CDC', async () => {
@@ -329,6 +335,54 @@ describe('NsdTemplateUpdater', () => {
       ).to.include(
         'The selected logical node type contains user-defined data objects with unsupported CDCs.'
       );
+    });
+
+    it('adds a data object to the tree when form is valid', async () => {
+      const dialog = element.shadowRoot?.querySelector(
+        'add-data-object-dialog'
+      ) as HTMLElement & { show: () => void };
+      dialog.show();
+
+      const cdcSelect = dialog.shadowRoot?.querySelector(
+        '#cdc-type'
+      ) as HTMLSelectElement;
+      const doNameField = dialog.shadowRoot?.querySelector(
+        '#do-name'
+      ) as HTMLInputElement;
+
+      cdcSelect.value = 'WYE';
+      doNameField.value = 'TestDO';
+
+      cdcSelect.dispatchEvent(new Event('input', { bubbles: true }));
+      doNameField.dispatchEvent(new Event('input', { bubbles: true }));
+      // Submit the form
+      const form = dialog.shadowRoot?.querySelector('form')!;
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true })
+      );
+      await element.updateComplete;
+
+      expect(element.treeUI.tree).to.have.property('TestDO');
+      expect(element.treeUI.tree.TestDO).to.include({
+        type: 'WYE',
+        tagName: 'DataObject',
+        descID: '',
+        presCond: 'O',
+      });
+    });
+
+    it('does not add a data object if form is invalid', async () => {
+      const dialog = element.shadowRoot?.querySelector(
+        'add-data-object-dialog'
+      ) as HTMLElement & { show: () => void };
+      dialog.show();
+      await element.updateComplete;
+      const form = dialog.shadowRoot?.querySelector('form')!;
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true })
+      );
+      await element.updateComplete;
+      expect(element.treeUI.tree).to.not.have.property('TestDO');
     });
   });
 });

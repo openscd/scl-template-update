@@ -206,8 +206,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private mergeUserDOsIntoTree(
     tree: any,
     lNodeType: Element
-  ): LNodeDescription {
-    if (!lNodeType || !this.doc) return tree;
+  ): { tree: LNodeDescription; unsupportedDOs: string[] } {
+    if (!lNodeType || !this.doc) return { tree, unsupportedDOs: [] };
     const result = { ...tree };
     const doElements = Array.from(lNodeType.querySelectorAll(':scope > DO'));
     const standardDONames = tree ? Object.keys(tree) : [];
@@ -221,7 +221,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
           `:root > DataTypeTemplates > DOType[id="${doType}"]`
         );
         const cdc = doTypeElement?.getAttribute('cdc');
-        if (cdc && (cdClasses as ReadonlyArray<string>).includes(cdc)) {
+        const isCdcSupported =
+          cdc && (cdClasses as ReadonlyArray<string>).includes(cdc);
+        if (isCdcSupported) {
           const cdcChildren = nsdToJson(cdc);
           const cdcDescription = {
             tagName: 'DataObject',
@@ -236,12 +238,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         }
       }
     });
-    if (unsupportedDOs.length > 0) {
-      this.showWarning(
-        'The selected logical node type contains user-defined data objects with unsupported CDCs.'
-      );
-    }
-    return result;
+    return { tree: result, unsupportedDOs };
   }
 
   private getSelectedLNodeType(selected: string): Element | undefined {
@@ -255,15 +252,13 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private buildLNodeTree(
     selectedLNodeTypeClass: string,
     lNodeType: Element
-  ): any {
+  ): { tree: any; unsupportedDOs: string[] } {
     const tree = nsdToJson(selectedLNodeTypeClass) as any;
-    if (!tree) return undefined;
+    if (!tree) return { tree: undefined, unsupportedDOs: [] };
     return this.mergeUserDOsIntoTree(tree, lNodeType);
   }
 
-  private checkLNodeTypeReferences(
-    selectedLNodeTypeID: string | null
-  ): boolean {
+  private isLNodeTypeReferenced(selectedLNodeTypeID: string | null): boolean {
     if (!this.doc || !selectedLNodeTypeID) return false;
     return !!this.doc.querySelector(
       `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
@@ -290,7 +285,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
-    const tree = this.buildLNodeTree(
+    const { tree, unsupportedDOs } = this.buildLNodeTree(
       selectedLNodeTypeClass,
       this.selectedLNodeType
     );
@@ -301,8 +296,14 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
+    if (unsupportedDOs.length > 0) {
+      this.showWarning(
+        'The selected logical node type contains user-defined data objects with unsupported CDCs.'
+      );
+    }
+
     const selectedLNodeTypeID = this.selectedLNodeType.getAttribute('id');
-    const isReferenced = this.checkLNodeTypeReferences(selectedLNodeTypeID);
+    const isReferenced = this.isLNodeTypeReferenced(selectedLNodeTypeID);
 
     this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType);
     this.treeUI.tree = tree;

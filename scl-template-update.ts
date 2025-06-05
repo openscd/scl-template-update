@@ -14,7 +14,7 @@ import {
   LNodeDescription,
 } from '@openenergytools/scl-lib';
 
-import { Tree, TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
+import { TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
 
 import { MdFilledButton } from '@scopedelement/material-web/button/MdFilledButton.js';
 import { MdOutlinedButton } from '@scopedelement/material-web/button/MdOutlinedButton.js';
@@ -25,17 +25,15 @@ import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelec
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 
-import { cdClasses } from './constants.js';
-
-function filterSelection(tree: Tree, selection: TreeSelection): TreeSelection {
-  const filteredTree: TreeSelection = {};
-  Object.keys(selection).forEach(key => {
-    const isThere = !!tree[key];
-    if (isThere) filteredTree[key] = selection[key];
-  });
-
-  return filteredTree;
-}
+import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
+import { cdClasses } from './foundation/constants.js';
+import { buildLNodeTree } from './foundation/tree.js';
+import {
+  getLNodeTypes,
+  getSelectedLNodeType,
+  isLNodeTypeReferenced,
+  filterSelection,
+} from './foundation/utils.js';
 
 export default class NsdTemplateUpdated extends ScopedElementsMixin(
   LitElement
@@ -50,6 +48,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton,
     'md-circular-progress': MdCircularProgress,
+    'add-data-object-dialog': AddDataObjectDialog,
   };
 
   @property()
@@ -66,6 +65,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   @query('#dialog-choice')
   choiceDialog?: MdDialog;
+
+  @query('add-data-object-dialog')
+  addDataObjectDialog!: HTMLElement & {
+    show: () => void;
+    validateForm: () => boolean;
+  };
 
   @state()
   lNodeTypes: Element[] = [];
@@ -88,18 +93,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   fabLabel: string = 'Update Logical Node Type';
 
+  @state()
+  disableAddDataObjectButton = true;
+
   updated(changedProperties: Map<string, unknown>) {
     super.updated?.(changedProperties);
     if (changedProperties.has('doc')) {
       this.resetUI(true);
-      this.getlNodeTypes();
+      this.lNodeTypes = getLNodeTypes(this.doc);
     }
-  }
-
-  private async getlNodeTypes() {
-    this.lNodeTypes = Array.from(
-      this.doc?.querySelectorAll(':root > DataTypeTemplates > LNodeType') ?? []
-    );
   }
 
   private resetUI(full: boolean = false): void {
@@ -108,12 +110,17 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       this.lNodeTypeSelection = undefined;
       this.nsdSelection = undefined;
       this.lNodeTypeUI?.reset();
+      this.disableAddDataObjectButton = true;
     }
     if (this.treeUI) {
       this.treeUI.tree = {};
       this.treeUI.selection = {};
       this.treeUI.requestUpdate();
     }
+  }
+
+  private async openAddDataObjectDialog() {
+    this.addDataObjectDialog?.show();
   }
 
   private showWarning(msg: string): void {
@@ -151,7 +158,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.dispatchEvent(
       newEditEvent(remove, { squash: true, title: `Update ${lnID}` })
     );
-    this.getlNodeTypes();
+    this.lNodeTypes = getLNodeTypes(this.doc);
 
     const updatedLNodeType = inserts.find(
       insert => (insert.node as Element).tagName === 'LNodeType'
@@ -198,74 +205,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.saveTemplates();
   }
 
-  /**
-   * Merges user-defined Data Objects in the NSD tree. This ensures that
-   * any custom or extra DOs present in the user's SCL are preserved
-   * in the tree, even if they are not part of the NSD definition.
-   */
-  private mergeUserDOsIntoTree(
-    tree: any,
-    lNodeType: Element
-  ): { tree: LNodeDescription; unsupportedDOs: string[] } {
-    if (!lNodeType || !this.doc) return { tree, unsupportedDOs: [] };
-    const result = { ...tree };
-    const doElements = Array.from(lNodeType.querySelectorAll(':scope > DO'));
-    const standardDONames = tree ? Object.keys(tree) : [];
-    const unsupportedDOs: string[] = [];
-    doElements.forEach(doEl => {
-      const doName = doEl.getAttribute('name');
-      const doType = doEl.getAttribute('type');
-      if (!doName || !doType) return;
-      if (!standardDONames.includes(doName)) {
-        const doTypeElement = this.doc!.querySelector(
-          `:root > DataTypeTemplates > DOType[id="${doType}"]`
-        );
-        const cdc = doTypeElement?.getAttribute('cdc');
-        const isCdcSupported =
-          cdc && (cdClasses as ReadonlyArray<string>).includes(cdc);
-        if (isCdcSupported) {
-          const cdcChildren = nsdToJson(cdc);
-          const cdcDescription = {
-            tagName: 'DataObject',
-            type: cdc,
-            descID: '',
-            presCond: 'O',
-            children: cdcChildren,
-          };
-          result[doName] = cdcDescription;
-        } else {
-          unsupportedDOs.push(doName);
-        }
-      }
-    });
-    return { tree: result, unsupportedDOs };
-  }
-
-  private getSelectedLNodeType(selected: string): Element | undefined {
-    return (
-      this.doc?.querySelector(
-        `:root > DataTypeTemplates > LNodeType[id="${selected}"]`
-      ) ?? undefined
-    );
-  }
-
-  private buildLNodeTree(
-    selectedLNodeTypeClass: string,
-    lNodeType: Element
-  ): { tree: any; unsupportedDOs: string[] } {
-    const tree = nsdToJson(selectedLNodeTypeClass) as any;
-    if (!tree) return { tree: undefined, unsupportedDOs: [] };
-    return this.mergeUserDOsIntoTree(tree, lNodeType);
-  }
-
-  private isLNodeTypeReferenced(selectedLNodeTypeID: string | null): boolean {
-    if (!this.doc || !selectedLNodeTypeID) return false;
-    return !!this.doc.querySelector(
-      `:root > Substation LNode[lnType="${selectedLNodeTypeID}"], :root > IED LN[lnType="${selectedLNodeTypeID}"], :root > IED LN0[lnType="${selectedLNodeTypeID}"]`
-    );
-  }
-
   async onLNodeTypeSelect(e: Event): Promise<void> {
+    this.disableAddDataObjectButton = true;
     const target = e.target as MdFilledSelect;
     this.loading = true;
     // Let the browser render the loader before heavy work
@@ -275,7 +216,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
     this.resetUI(false);
 
-    this.selectedLNodeType = this.getSelectedLNodeType(target.value);
+    this.selectedLNodeType = getSelectedLNodeType(this.doc!, target.value);
 
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
@@ -285,9 +226,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
-    const { tree, unsupportedDOs } = this.buildLNodeTree(
+    const { tree, unsupportedDOs } = buildLNodeTree(
       selectedLNodeTypeClass,
-      this.selectedLNodeType
+      this.selectedLNodeType,
+      this.doc!
     );
 
     if (!tree) {
@@ -302,8 +244,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       );
     }
 
+    this.disableAddDataObjectButton = false;
     const selectedLNodeTypeID = this.selectedLNodeType.getAttribute('id');
-    const isReferenced = this.isLNodeTypeReferenced(selectedLNodeTypeID);
+    const isReferenced = isLNodeTypeReferenced(this.doc!, selectedLNodeTypeID);
 
     this.lNodeTypeSelection = lNodeTypeToSelection(this.selectedLNodeType);
     this.treeUI.tree = tree;
@@ -317,6 +260,33 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       this.showWarning(
         'The selected logical node type is referenced. This plugin should be used during specification only.'
       );
+  }
+
+  private addDataObjectToTree(
+    cdcType: (typeof cdClasses)[number],
+    doName: string
+  ): void {
+    const cdcChildren = nsdToJson(cdcType);
+    const newDataObject = {
+      [doName]: {
+        tagName: 'DataObject',
+        type: cdcType,
+        descID: '',
+        presCond: 'O',
+        children: cdcChildren,
+      },
+    };
+    Object.assign(this.treeUI.tree, newDataObject);
+    this.treeUI.requestUpdate();
+  }
+
+  private async handleAddDataObject(e: CustomEvent): Promise<void> {
+    e.preventDefault();
+    const { cdcType, doName } = e.detail;
+
+    if (!this.addDataObjectDialog?.validateForm()) return;
+
+    this.addDataObjectToTree(cdcType as (typeof cdClasses)[number], doName);
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -372,8 +342,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     ></md-fab>`;
   }
 
-  renderLNodeTypeSelector(): TemplateResult {
-    return html`
+  renderLNodeTypeControls(): TemplateResult {
+    return html` <div class="controls-row">
+      <md-outlined-button
+        ?disabled=${this.disableAddDataObjectButton}
+        @click=${this.openAddDataObjectDialog}
+      >
+        <md-icon slot="icon">add</md-icon>
+        Add Data Object
+      </md-outlined-button>
       <md-filled-select @change=${this.onLNodeTypeSelect}>
         ${this.lNodeTypes.map(
           lNodeType =>
@@ -382,25 +359,24 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
             </md-select-option>`
         )}
       </md-filled-select>
-    `;
-  }
-
-  renderLoader(): TemplateResult {
-    return this.loading
-      ? html`<md-circular-progress indeterminate></md-circular-progress>`
-      : html``;
+      ${this.loading
+        ? html`<md-circular-progress indeterminate></md-circular-progress>`
+        : ``}
+    </div>`;
   }
 
   render() {
     if (!this.doc) return html`<h1>Load SCL document first!</h1>`;
 
     return html`<div class="container">
-        <div class="select-row">
-          ${this.renderLNodeTypeSelector()} ${this.renderLoader()}
-        </div>
+        ${this.renderLNodeTypeControls()}
         <tree-grid></tree-grid>
       </div>
-      ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()} `;
+      ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
+      <add-data-object-dialog
+        .cdClasses=${cdClasses}
+        @add-data-object=${this.handleAddDataObject}
+      ></add-data-object-dialog>`;
   }
 
   static styles = css`
@@ -437,6 +413,14 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       line-height: 48px;
     }
 
+    md-outlined-button {
+      text-transform: uppercase;
+    }
+
+    md-icon {
+      font-family: var(--oscd-theme-icon-font, 'Material Symbols Outlined');
+    }
+
     .button.close {
       --md-outlined-button-label-text-color: var(--oscd-accent-red);
       --md-outlined-button-hover-label-text-color: var(--oscd-accent-red);
@@ -457,12 +441,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       opacity: 0.6;
     }
 
-    .select-row {
+    .controls-row {
       display: flex;
-      align-items: center;
       gap: 12px;
-      position: absolute;
-      left: 300px;
+      margin-bottom: 12px;
     }
   `;
 }

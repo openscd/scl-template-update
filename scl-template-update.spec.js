@@ -197,12 +197,19 @@ describe('NsdTemplateUpdater', () => {
     describe('given a document with unsupported CDC', () => {
         afterEach(restore);
         beforeEach(async () => {
+            var _a;
             openSCD.addEventListener('oscd-edit-v2', () => { });
             const doc = new DOMParser().parseFromString(customDataObjectInvalidCDC, 'application/xml');
             openSCD.dispatchEvent(newOpenEvent(doc, 'SomeDoc'));
             await new Promise(res => {
                 setTimeout(res, 200);
             });
+            await element.updateComplete;
+            const treeUI = (_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('tree-grid');
+            if (treeUI) {
+                treeUI.tree = {};
+                treeUI.requestUpdate = () => { };
+            }
         });
         it('shows a warning dialog when a lnode type has user defined DOs with unsupported CDC', async () => {
             var _a, _b, _c, _d;
@@ -219,6 +226,38 @@ describe('NsdTemplateUpdater', () => {
             await element.updateComplete;
             expect((_b = element.warningDialog) === null || _b === void 0 ? void 0 : _b.getAttribute('open')).to.not.be.null;
             expect((_d = (_c = element.warningDialog) === null || _c === void 0 ? void 0 : _c.querySelector('form')) === null || _d === void 0 ? void 0 : _d.textContent).to.include('The selected logical node type contains user-defined data objects with unsupported CDCs.');
+        });
+        it('adds a data object to the tree when form is valid', async () => {
+            var _a, _b, _c, _d;
+            const dialog = (_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('add-data-object-dialog');
+            dialog.show();
+            const cdcSelect = (_b = dialog.shadowRoot) === null || _b === void 0 ? void 0 : _b.querySelector('#cdc-type');
+            const doNameField = (_c = dialog.shadowRoot) === null || _c === void 0 ? void 0 : _c.querySelector('#do-name');
+            cdcSelect.value = 'WYE';
+            doNameField.value = 'TestDO';
+            cdcSelect.dispatchEvent(new Event('input', { bubbles: true }));
+            doNameField.dispatchEvent(new Event('input', { bubbles: true }));
+            // Submit the form
+            const form = (_d = dialog.shadowRoot) === null || _d === void 0 ? void 0 : _d.querySelector('form');
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            await element.updateComplete;
+            expect(element.treeUI.tree).to.have.property('TestDO');
+            expect(element.treeUI.tree.TestDO).to.include({
+                type: 'WYE',
+                tagName: 'DataObject',
+                descID: '',
+                presCond: 'O',
+            });
+        });
+        it('does not add a data object if form is invalid', async () => {
+            var _a, _b;
+            const dialog = (_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('add-data-object-dialog');
+            dialog.show();
+            await element.updateComplete;
+            const form = (_b = dialog.shadowRoot) === null || _b === void 0 ? void 0 : _b.querySelector('form');
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            await element.updateComplete;
+            expect(element.treeUI.tree).to.not.have.property('TestDO');
         });
     });
 });

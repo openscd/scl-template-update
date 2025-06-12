@@ -973,3 +973,55 @@ export const customDataObjectInvalidCDC = `<?xml version="1.0" encoding="UTF-8"?
 		</EnumType>
 	</DataTypeTemplates>
 </SCL>`;
+
+export const testLNodeTypesXml = `<?xml version="1.0" encoding="UTF-8"?>
+<SCL xmlns="http://www.iec.ch/61850/2003/SCL" version="2007" revision="B" release="4">
+  <Header id="testLNodeTypes"/>
+  <DataTypeTemplates>
+    <LNodeType lnClass="MMXU" id="foo">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="bar" desc="desc2 baz">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="baz" desc="desc3">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="foobar" desc="desc4">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="qux" desc="foo bar">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="alpha" desc="first node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="beta" desc="second node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="gamma" desc="third node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="delta" desc="fourth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="epsilon" desc="fifth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="zeta" desc="sixth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="eta" desc="seventh node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="theta" desc="eighth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="iota" desc="ninth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+    <LNodeType lnClass="MMXU" id="kappa" desc="tenth node">
+      <DO name="Beh" type="BehType"/>
+    </LNodeType>
+  </DataTypeTemplates>
+</SCL>`;

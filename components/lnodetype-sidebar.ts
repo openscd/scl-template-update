@@ -49,7 +49,7 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  private get filteredLNodeTypes(): Element[] {
+  get filteredLNodeTypes(): Element[] {
     if (!this.filter.trim()) return this.lNodeTypes;
     // If the filter includes words separated by &, treat as a single AND group (e.g. 'a & b', 'a&b', 'a &b', 'a& b').
     // Otherwise, split on comma or space (unless adjacent to &), so 'a b' and 'a,b' are separate OR groups.
@@ -89,15 +89,7 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
     return html`<div class="sidebar">
       <div class="sidebar-content">
         <div class="actions">
-          <md-filled-button
-            class="clear-all"
-            @click=${this.clearFilter}
-            @keydown=${(e: KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                this.clearFilter();
-              }
-            }}
-          >
+          <md-filled-button class="clear-all" @click=${this.clearFilter}>
             Clear filter
           </md-filled-button>
         </div>

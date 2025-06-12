@@ -49,7 +49,7 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  private get filteredLNodeTypes(): Element[] {
+  get filteredLNodeTypes(): Element[] {
     if (!this.filter.trim()) return this.lNodeTypes;
     // If the filter includes words separated by &, treat as a single AND group (e.g. 'a & b', 'a&b', 'a &b', 'a& b').
     // Otherwise, split on comma or space (unless adjacent to &), so 'a b' and 'a,b' are separate OR groups.

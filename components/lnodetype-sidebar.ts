@@ -51,11 +51,37 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
 
   private get filteredLNodeTypes(): Element[] {
     if (!this.filter.trim()) return this.lNodeTypes;
-    const terms = this.filter.toLowerCase().split(/[ ,]+/).filter(Boolean);
+    // If the filter includes words separated by &, treat as a single AND group (e.g. 'a & b', 'a&b', 'a &b', 'a& b').
+    // Otherwise, split on comma or space (unless adjacent to &), so 'a b' and 'a,b' are separate OR groups.
+    let groups: string[][] = [];
+    const filter = this.filter.toLowerCase().trim();
+    if (/^\s*\w+\s*&\s*\w+\s*$/.test(filter)) {
+      groups = [
+        filter
+          .replace(/\s*&\s*/g, '&')
+          .split('&')
+          .filter(Boolean),
+      ];
+    } else {
+      groups = filter
+        .split(/(?<!&)[ ,]+(?!&)/)
+        .map(group =>
+          group
+            .replace(/\s*&\s*/g, '&')
+            .split('&')
+            .filter(Boolean)
+        )
+        .filter(group => group.length > 0);
+    }
+
+    if (groups.length === 0) return this.lNodeTypes;
+
     return this.lNodeTypes.filter(ln => {
       const id = ln.getAttribute('id')?.toLowerCase() || '';
       const desc = ln.getAttribute('desc')?.toLowerCase() || '';
-      return terms.some(term => id.includes(term) || desc.includes(term));
+      return groups.some(group =>
+        group.every(term => id.includes(term) || desc.includes(term))
+      );
     });
   }
 
@@ -80,14 +106,14 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
             <md-outlined-textfield
               label="Filter Logical Node Types"
               type="text"
-              placeholder="e.g.: TCTR, TVTR, protection"
+              placeholder="e.g.: TCTR, TVTR&amp;protection"
               .value=${this.filter}
               @input=${this.handleInput}
               aria-label="Filter Logical Node Types"
             ></md-outlined-textfield>
             <div class="helper-text">
-              Search by ID or description. Use commas or spaces to separate
-              terms.
+              Search by ID or description. Use commas/spaces for OR, use & for
+              AND.
             </div>
           </div>
         </div>

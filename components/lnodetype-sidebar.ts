@@ -87,47 +87,45 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
 
   render() {
     return html`<div class="sidebar">
-      <div class="sidebar-content">
-        <div class="actions">
-          <md-filled-button class="clear-all" @click=${this.clearFilter}>
-            Clear filter
-          </md-filled-button>
-        </div>
-        <div class="search-filter">
-          <div class="search-container">
-            <md-outlined-textfield
-              label="Filter Logical Node Types"
-              type="text"
-              placeholder="e.g.: TCTR, TVTR&amp;protection"
-              .value=${this.filter}
-              @input=${this.handleInput}
-              aria-label="Filter Logical Node Types"
-            ></md-outlined-textfield>
-            <div class="helper-text">
-              Search by ID or description. Use commas/spaces for OR, use & for
-              AND.
-            </div>
+      <div class="actions">
+        <md-filled-button class="clear-all" @click=${this.clearFilter}>
+          Clear filter
+        </md-filled-button>
+      </div>
+      <div class="search-filter">
+        <div class="search-container">
+          <md-outlined-textfield
+            label="Filter Logical Node Types"
+            type="text"
+            placeholder="e.g.: TCTR, TVTR&amp;protection"
+            .value=${this.filter}
+            @input=${this.handleInput}
+            aria-label="Filter Logical Node Types"
+          ></md-outlined-textfield>
+          <div class="helper-text">
+            Search by ID or description. Use commas/spaces for OR, use & for
+            AND.
           </div>
         </div>
-        <md-list>
-          ${this.filteredLNodeTypes.map(ln => {
-            const id = ln.getAttribute('id') || '';
-            const desc = ln.getAttribute('desc') || '';
-            const isSelected = this.selectedId === id;
-            return html`
-              <md-list-item
-                type="button"
-                ?selected=${isSelected}
-                @click=${() => this.handleClick(id)}
-              >
-                <span slot="headline" title=${id}>${id}</span>
-                <span slot="supporting-text">${desc}</span>
-              </md-list-item>
-            `;
-          })}
-        </md-list>
       </div>
-    </div> `;
+      <md-list>
+        ${this.filteredLNodeTypes.map(ln => {
+          const id = ln.getAttribute('id') || '';
+          const desc = ln.getAttribute('desc') || '';
+          const isSelected = this.selectedId === id;
+          return html`
+            <md-list-item
+              type="button"
+              ?selected=${isSelected}
+              @click=${() => this.handleClick(id)}
+            >
+              <span slot="headline" title=${id}>${id}</span>
+              <span slot="supporting-text">${desc}</span>
+            </md-list-item>
+          `;
+        })}
+      </md-list>
+    </div>`;
   }
 
   updated(changedProperties: Map<string, unknown>) {
@@ -141,8 +139,6 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
 
   static styles = css`
     .sidebar {
-    }
-    .sidebar-content {
       display: flex;
       flex-direction: column;
       flex: 1 1 auto;

@@ -101,11 +101,8 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
             .value=${this.filter}
             @input=${this.handleInput}
             aria-label="Filter Logical Node Types"
+            supporting-text="Search by ID or description. Use commas/spaces for OR, use &amp; for AND."
           ></md-outlined-textfield>
-          <div class="helper-text">
-            Search by ID or description. Use commas/spaces for OR, use & for
-            AND.
-          </div>
         </div>
       </div>
       <md-list>
@@ -190,11 +187,6 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
     .search-container {
       flex: 1;
       position: relative;
-    }
-    .helper-text {
-      font-size: 0.85em;
-      color: #888;
-      margin-top: 0.2em;
     }
     .clear-all {
       cursor: pointer;

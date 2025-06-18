@@ -72,8 +72,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('updates MMXU on action button click', async () => {
       const event = {
-        target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
-      } as unknown as Event;
+        detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 0);
@@ -116,8 +116,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('updates LLN0 on action button click', async () => {
       const event = {
-        target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
-      } as unknown as Event;
+        detail: { id: 'LLN0$oscd$_85c7ffbe25d80e63' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 0);
@@ -184,8 +184,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('does not update with same selection', async () => {
       const event = {
-        target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
-      } as unknown as Event;
+        detail: { id: 'LLN0$oscd$_85c7ffbe25d80e63' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await element.updateComplete;
 
@@ -225,7 +225,7 @@ describe('NsdTemplateUpdater', () => {
     });
 
     it('does not load non NSD ln classes', async () => {
-      const event = { target: { value: 'invalidLnClass' } } as unknown as Event;
+      const event = { detail: { id: 'invalidLnClass' } } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 50);
@@ -237,8 +237,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('notifies with LNodeType is referenced', async () => {
       const event = {
-        target: { value: 'LLN0$oscd$_85c7ffbe25d80e63' },
-      } as unknown as Event;
+        detail: { id: 'LLN0$oscd$_85c7ffbe25d80e63' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 200);
@@ -254,8 +254,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('updates MMXU on action button click', async () => {
       const event = {
-        target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
-      } as unknown as Event;
+        detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 0);
@@ -316,8 +316,8 @@ describe('NsdTemplateUpdater', () => {
 
     it('shows a warning dialog when a lnode type has user defined DOs with unsupported CDC', async () => {
       const event = {
-        target: { value: 'MMXU$oscd$_c53e78191fabefa3' },
-      } as unknown as Event;
+        detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
+      } as CustomEvent;
       element.onLNodeTypeSelect(event);
       await new Promise(res => {
         setTimeout(res, 0);

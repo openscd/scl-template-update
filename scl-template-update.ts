@@ -26,6 +26,7 @@ import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOptio
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
+import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
 import { cdClasses } from './foundation/constants.js';
 import { buildLNodeTree } from './foundation/tree.js';
 import {
@@ -49,6 +50,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-outlined-button': MdOutlinedButton,
     'md-circular-progress': MdCircularProgress,
     'add-data-object-dialog': AddDataObjectDialog,
+    'lnodetype-sidebar': LNodeTypeSidebar,
   };
 
   @property()
@@ -205,18 +207,17 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.saveTemplates();
   }
 
-  async onLNodeTypeSelect(e: Event): Promise<void> {
+  async onLNodeTypeSelect(e: CustomEvent): Promise<void> {
+    const id = e.detail?.id;
     this.disableAddDataObjectButton = true;
-    const target = e.target as MdFilledSelect;
     this.loading = true;
+    this.selectedLNodeType = getSelectedLNodeType(this.doc!, id);
     // Let the browser render the loader before heavy work
     await new Promise(resolve => {
       setTimeout(resolve, 0);
     });
 
     this.resetUI(false);
-
-    this.selectedLNodeType = getSelectedLNodeType(this.doc!, target.value);
 
     const selectedLNodeTypeClass =
       this.selectedLNodeType?.getAttribute('lnClass');
@@ -351,14 +352,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-icon slot="icon">add</md-icon>
         Add Data Object
       </md-outlined-button>
-      <md-filled-select @change=${this.onLNodeTypeSelect}>
-        ${this.lNodeTypes.map(
-          lNodeType =>
-            html`<md-select-option value=${lNodeType.getAttribute('id')}>
-              <div slot="headline">${lNodeType.getAttribute('id')}</div>
-            </md-select-option>`
-        )}
-      </md-filled-select>
       ${this.loading
         ? html`<md-circular-progress indeterminate></md-circular-progress>`
         : ``}
@@ -369,8 +362,15 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     if (!this.doc) return html`<h1>Load SCL document first!</h1>`;
 
     return html`<div class="container">
-        ${this.renderLNodeTypeControls()}
-        <tree-grid></tree-grid>
+        <div class="main-content">
+          ${this.renderLNodeTypeControls()}
+          <tree-grid></tree-grid>
+        </div>
+        <lnodetype-sidebar
+          .lNodeTypes=${this.lNodeTypes}
+          .selectedId=${this.selectedLNodeType?.getAttribute('id') ?? ''}
+          @lnodetype-select=${this.onLNodeTypeSelect}
+        ></lnodetype-sidebar>
       </div>
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
       <add-data-object-dialog
@@ -380,6 +380,13 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   }
 
   static styles = css`
+    :host {
+      --app-bar-height: 64px;
+      --tab-bar-height: 48px;
+      --header-height: calc(var(--app-bar-height) + var(--tab-bar-height));
+      --sidebar-width: 330px;
+    }
+
     * {
       --md-sys-color-primary: var(--oscd-primary);
       --md-sys-color-secondary: var(--oscd-secondary);
@@ -427,13 +434,31 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     }
 
     .container {
+      display: grid;
+      grid-template-columns: auto var(--sidebar-width);
+      min-height: calc(100vh - var(--header-height));
+    }
+
+    .main-content {
       margin: 12px;
+    }
+
+    lnodetype-sidebar {
+      position: sticky;
+      top: var(--app-bar-height);
+      height: calc(100vh - var(--app-bar-height));
+      max-height: calc(100vh - var(--app-bar-height));
+      width: var(--sidebar-width);
+      z-index: 1;
+      right: 0;
+      overflow: hidden;
+      background: #fcf6e5;
     }
 
     .update-lnode-type {
       position: fixed;
       bottom: 32px;
-      right: 32px;
+      right: calc(32px + var(--sidebar-width));
     }
 
     .update-lnode-type[disabled] {
@@ -445,6 +470,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       display: flex;
       gap: 12px;
       margin-bottom: 12px;
+      height: 48px;
     }
   `;
 }

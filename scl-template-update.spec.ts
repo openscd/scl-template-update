@@ -292,6 +292,23 @@ describe('NsdTemplateUpdater', () => {
         ((removes[0] as Remove).node as Element).getAttribute('id')
       ).to.equal('MMXU$oscd$_c53e78191fabefa3');
     }).timeout(5000);
+
+    it('updates the selected LNodeType when the description is changed', async () => {
+      const event = {
+        detail: { id: 'LLN0$oscd$_85c7ffbe25d80e63' },
+      } as CustomEvent;
+      element.onLNodeTypeSelect(event);
+      await new Promise(res => {
+        setTimeout(res, 0);
+      });
+
+      element.lnodeTypeDesc.value = 'New Description';
+      await element.updateComplete;
+
+      (element.shadowRoot?.querySelector('md-fab') as HTMLElement).click();
+      await element.updateComplete;
+      expect(listener).to.have.been.called;
+    });
   });
 
   describe('given a document with unsupported CDC', () => {

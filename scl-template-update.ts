@@ -157,10 +157,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     });
 
     if (inserts.length === 0) {
-      if (
-        this.selectedLNodeType &&
-        this.selectedLNodeType.getAttribute('desc') !== desc
-      ) {
+      const currentDesc = this.selectedLNodeType?.getAttribute('desc') ?? '';
+      if (this.selectedLNodeType && currentDesc !== desc) {
         this.updateLNodeTypeDescription(desc);
         this.lNodeTypes = getLNodeTypes(this.doc);
       }
@@ -206,6 +204,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         {
           element: this.selectedLNodeType!,
           attributes: { desc },
+          attributesNS: {},
         },
       ])
     );

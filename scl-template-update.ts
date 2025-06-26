@@ -24,6 +24,7 @@ import { MdIcon } from '@scopedelement/material-web/icon/MdIcon.js';
 import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelect.js';
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
+import { MdOutlinedTextField } from '@scopedelement/material-web/textfield/MdOutlinedTextField.js';
 
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
@@ -49,6 +50,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton,
     'md-circular-progress': MdCircularProgress,
+    'md-outlined-text-field': MdOutlinedTextField,
     'add-data-object-dialog': AddDataObjectDialog,
     'lnodetype-sidebar': LNodeTypeSidebar,
   };
@@ -73,6 +75,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     show: () => void;
     validateForm: () => boolean;
   };
+
+  @query('#lnodetype-desc')
+  lnodeTypeDesc!: MdOutlinedTextField;
 
   @state()
   lNodeTypes: Element[] = [];
@@ -143,12 +148,22 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;
+    const desc = this.lnodeTypeDesc.value;
+
     const inserts = insertSelectedLNodeType(this.doc, this.nsdSelection, {
       class: lnClass,
+      ...(!!desc && { desc }),
       data: this.treeUI.tree as LNodeDescription,
     });
 
-    if (inserts.length === 0) return; // no changes in LNodeType
+    if (inserts.length === 0) {
+      const currentDesc = this.selectedLNodeType?.getAttribute('desc') ?? '';
+      if (this.selectedLNodeType && currentDesc !== desc) {
+        this.updateLNodeTypeDescription(desc);
+        this.lNodeTypes = getLNodeTypes(this.doc);
+      }
+      return;
+    }
 
     this.dispatchEvent(newEditEvent(inserts));
     await this.updateComplete;
@@ -181,6 +196,18 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         this.fabLabel = 'Update Logical Node Type';
       }, 5000);
     }
+  }
+
+  private updateLNodeTypeDescription(desc: string): void {
+    this.dispatchEvent(
+      newEditEvent([
+        {
+          element: this.selectedLNodeType!,
+          attributes: { desc },
+          attributesNS: {},
+        },
+      ])
+    );
   }
 
   private proceedWithDataLoss() {
@@ -352,6 +379,12 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         <md-icon slot="icon">add</md-icon>
         Add Data Object
       </md-outlined-button>
+      <md-outlined-text-field
+        id="lnodetype-desc"
+        label="Description"
+        ?disabled=${!this.selectedLNodeType}
+        .value=${this.selectedLNodeType?.getAttribute('desc') ?? ''}
+      ></md-outlined-text-field>
       ${this.loading
         ? html`<md-circular-progress indeterminate></md-circular-progress>`
         : ``}
@@ -470,7 +503,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       display: flex;
       gap: 12px;
       margin-bottom: 12px;
-      height: 48px;
+      align-items: stretch;
     }
   `;
 }

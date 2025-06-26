@@ -146,7 +146,7 @@ export class LNodeTypeSidebar extends ScopedElementsMixin(LitElement) {
     }
     md-list {
       min-height: 0;
-      max-height: 65vh;
+      max-height: calc(100vh - var(--header-height) - 1rem - 134px);
       overflow-y: auto;
       scrollbar-width: thin;
       padding: 0;

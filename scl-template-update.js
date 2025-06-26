@@ -25231,6 +25231,7 @@ function hashElement(element) {
     }
     return cyrb64(JSON.stringify(describeElement(element)));
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function data(lnData, path) {
     let d = lnData;
     for (const slug of path.slice(0, -1))
@@ -25254,6 +25255,7 @@ function insertSelectedLNodeType(doc, selection, logicalnode) {
     };
     const lnData = logicalnode.data ?? nsdToJson(logicalnode.class);
     const lnClass = logicalnode.class;
+    const desc = logicalnode.desc ?? null;
     function isUnknownId(id) {
         const alreadyCreate = types.has(id);
         const alreadyExist = !!doc.querySelector(`:root > DataTypeTemplates > *[id="${id}"]`);
@@ -25269,7 +25271,7 @@ function insertSelectedLNodeType(doc, selection, logicalnode) {
         }
         return id;
     }
-    const lnType = createElement(doc, "LNodeType", { lnClass });
+    const lnType = createElement(doc, "LNodeType", { lnClass, desc });
     function createEnumType(path, sel) {
         const enumData = data(lnData, path).children;
         const vals = [];
@@ -25343,10 +25345,18 @@ function insertSelectedLNodeType(doc, selection, logicalnode) {
                 const type = createDOType(path.concat([name]), selection[name]);
                 const sdo = createElement(doc, "SDO", { name, transient, type });
                 doType.prepend(sdo);
+                // For arrays set count attribute
+                if (dep.isArray === "true" && dep.sizeAttribute) {
+                    sdo.setAttribute("count", dep.sizeAttribute);
+                }
             }
             else {
                 const { fc, dchg, dupd, qchg } = dep;
                 const da = createElement(doc, "DA", { name, fc, dchg, dupd, qchg });
+                // For arrays set count attribute
+                if (dep.isArray === "true" && dep.sizeAttribute) {
+                    da.setAttribute("count", dep.sizeAttribute);
+                }
                 if (dep.typeKind === "BASIC" || !dep.typeKind) {
                     da.setAttribute("bType", dep.type);
                 }
@@ -38671,7 +38681,7 @@ LNodeTypeSidebar.styles = i$6 `
     }
     md-list {
       min-height: 0;
-      max-height: 65vh;
+      max-height: calc(100vh - var(--header-height) - 1rem - 134px);
       overflow-y: auto;
       scrollbar-width: thin;
       padding: 0;
@@ -38895,35 +38905,52 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
         (_a = this.choiceDialog) === null || _a === void 0 ? void 0 : _a.close();
     }
     async saveTemplates() {
-        var _a, _b;
+        var _a, _b, _c, _d;
         if (!this.doc || !this.nsdSelection)
             return;
         const lnClass = this.selectedLNodeType.getAttribute('lnClass');
         const lnID = this.selectedLNodeType.getAttribute('id');
+        const desc = this.lnodeTypeDesc.value;
         const inserts = insertSelectedLNodeType(this.doc, this.nsdSelection, {
             class: lnClass,
+            ...(!!desc && { desc }),
             data: this.treeUI.tree,
         });
-        if (inserts.length === 0)
-            return; // no changes in LNodeType
+        if (inserts.length === 0) {
+            const currentDesc = (_b = (_a = this.selectedLNodeType) === null || _a === void 0 ? void 0 : _a.getAttribute('desc')) !== null && _b !== void 0 ? _b : '';
+            if (this.selectedLNodeType && currentDesc !== desc) {
+                this.updateLNodeTypeDescription(desc);
+                this.lNodeTypes = getLNodeTypes(this.doc);
+            }
+            return;
+        }
         this.dispatchEvent(newEditEvent(inserts));
         await this.updateComplete;
         const remove = removeDataType({ node: this.selectedLNodeType }, { force: true });
         this.dispatchEvent(newEditEvent(remove, { squash: true, title: `Update ${lnID}` }));
         this.lNodeTypes = getLNodeTypes(this.doc);
-        const updatedLNodeType = (_a = inserts.find(insert => insert.node.tagName === 'LNodeType')) === null || _a === void 0 ? void 0 : _a.node;
+        const updatedLNodeType = (_c = inserts.find(insert => insert.node.tagName === 'LNodeType')) === null || _c === void 0 ? void 0 : _c.node;
         if (updatedLNodeType) {
             const updatedLNodeTypeID = updatedLNodeType.getAttribute('id');
             this.selectedLNodeType = updatedLNodeType;
             await this.updateComplete;
             if (this.lNodeTypeUI && updatedLNodeType) {
-                this.lNodeTypeUI.value = (_b = updatedLNodeType.getAttribute('id')) !== null && _b !== void 0 ? _b : '';
+                this.lNodeTypeUI.value = (_d = updatedLNodeType.getAttribute('id')) !== null && _d !== void 0 ? _d : '';
             }
             this.fabLabel = `${updatedLNodeTypeID} updated!`;
             setTimeout(() => {
                 this.fabLabel = 'Update Logical Node Type';
             }, 5000);
         }
+    }
+    updateLNodeTypeDescription(desc) {
+        this.dispatchEvent(newEditEvent([
+            {
+                element: this.selectedLNodeType,
+                attributes: { desc },
+                attributesNS: {},
+            },
+        ]));
     }
     proceedWithDataLoss() {
         this.closeChoiceDialog();
@@ -39052,6 +39079,7 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
     ></md-fab>`;
     }
     renderLNodeTypeControls() {
+        var _a, _b;
         return x ` <div class="controls-row">
       <md-outlined-button
         ?disabled=${this.disableAddDataObjectButton}
@@ -39060,6 +39088,12 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
         <md-icon slot="icon">add</md-icon>
         Add Data Object
       </md-outlined-button>
+      <md-outlined-text-field
+        id="lnodetype-desc"
+        label="Description"
+        ?disabled=${!this.selectedLNodeType}
+        .value=${(_b = (_a = this.selectedLNodeType) === null || _a === void 0 ? void 0 : _a.getAttribute('desc')) !== null && _b !== void 0 ? _b : ''}
+      ></md-outlined-text-field>
       ${this.loading
             ? x `<md-circular-progress indeterminate></md-circular-progress>`
             : ``}
@@ -39097,6 +39131,7 @@ NsdTemplateUpdated.scopedElements = {
     'md-filled-button': MdFilledButton,
     'md-outlined-button': MdOutlinedButton$1,
     'md-circular-progress': MdCircularProgress,
+    'md-outlined-text-field': MdOutlinedTextField,
     'add-data-object-dialog': AddDataObjectDialog,
     'lnodetype-sidebar': LNodeTypeSidebar,
 };
@@ -39191,7 +39226,7 @@ NsdTemplateUpdated.styles = i$6 `
       display: flex;
       gap: 12px;
       margin-bottom: 12px;
-      height: 48px;
+      align-items: stretch;
     }
   `;
 __decorate([
@@ -39212,6 +39247,9 @@ __decorate([
 __decorate([
     e$3('add-data-object-dialog')
 ], NsdTemplateUpdated.prototype, "addDataObjectDialog", void 0);
+__decorate([
+    e$3('#lnodetype-desc')
+], NsdTemplateUpdated.prototype, "lnodeTypeDesc", void 0);
 __decorate([
     r$2()
 ], NsdTemplateUpdated.prototype, "lNodeTypes", void 0);

@@ -366,9 +366,13 @@ describe('NsdTemplateUpdater', () => {
       const doNameField = dialog.shadowRoot?.querySelector(
         '#do-name'
       ) as HTMLInputElement;
+      const namespaceField = dialog.shadowRoot?.querySelector(
+        '#namespace'
+      ) as HTMLInputElement;
 
       cdcSelect.value = 'WYE';
       doNameField.value = 'TestDO';
+      namespaceField.value = 'CustomNamespace';
 
       cdcSelect.dispatchEvent(new Event('input', { bubbles: true }));
       doNameField.dispatchEvent(new Event('input', { bubbles: true }));

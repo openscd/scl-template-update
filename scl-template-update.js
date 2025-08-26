@@ -29438,7 +29438,7 @@ function getColumns(rows, count) {
 }
 const selectAllValue = '$OSCD$selectAll$89764a15-504e-48f3-93b5-c8064dd39ee7';
 const placeholderCell = x `<md-list-item type="text"></md-list-item>`;
-function debounce(callback, delay = 250) {
+function debounce$1(callback, delay = 250) {
     let timeout;
     return () => {
         clearTimeout(timeout);
@@ -29767,7 +29767,7 @@ class TreeGrid extends ScopedElementsMixin(r$4) {
                 : 'search';
         })}
       label="${this.filterLabel}"
-      @input=${debounce(() => this.requestUpdate('filter'))}
+      @input=${debounce$1(() => this.requestUpdate('filter'))}
     >
       <md-icon slot="leading-icon">search</md-icon>
     </md-outlined-textfield>`;
@@ -38126,12 +38126,45 @@ MdTextButton = __decorate([
     t$1('md-text-button')
 ], MdTextButton);
 
+const debounce = (fn, delay) => {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+            fn(...args);
+        }, delay);
+    };
+};
+
+// eslint-disable-next-line no-shadow
+var DONameStatus;
+(function (DONameStatus) {
+    DONameStatus["Ok"] = "Ok";
+    DONameStatus["Taken"] = "Taken";
+    DONameStatus["InvalidCDC"] = "InvalidCDC";
+    DONameStatus["CustomNamespaceNeeded"] = "CustomNamespaceNeeded";
+})(DONameStatus || (DONameStatus = {}));
+const firstTextBlockRegExp = /[A-Za-z]+/;
 class AddDataObjectDialog extends ScopedElementsMixin(r$4) {
     constructor() {
         super(...arguments);
+        this.tree = {};
         this.cdClasses = [];
         this.open = false;
         this.errorText = '';
+        this.namespaceDefaultValue = 'User-Defined';
+        this.validationDebounceDelay = 300;
+        this.isCustomNamespaceDisabled = true;
+        this.onValueChange = debounce(() => {
+            if (!this.cdcType.value || !this.doName.value) {
+                this.isCustomNamespaceDisabled = true;
+                return;
+            }
+            const status = this.getDONameStatus();
+            this.setDONameStatusError(status);
+            this.isCustomNamespaceDisabled =
+                status !== DONameStatus.CustomNamespaceNeeded;
+        }, this.validationDebounceDelay);
     }
     show() {
         this.createDOdialog.show();
@@ -38147,7 +38180,67 @@ class AddDataObjectDialog extends ScopedElementsMixin(r$4) {
             this.doName.error = false;
             this.doName.value = '';
         }
+        if (this.namespace) {
+            this.namespace.errorText = '';
+            this.namespace.error = false;
+            this.namespace.value = '';
+            this.isCustomNamespaceDisabled = true;
+        }
         this.createDOdialog.close();
+    }
+    getMultiTree() {
+        return Object.keys(this.tree)
+            .filter(key => this.tree[key].presCond === 'Omulti')
+            .reduce((acc, key) => {
+            acc[key] = this.tree[key];
+            return acc;
+        }, {});
+    }
+    // eslint-disable-next-line class-methods-use-this
+    findMatchingTreeNode(doName, multiTree) {
+        const firstTextBlockMatch = doName.match(firstTextBlockRegExp);
+        if (!firstTextBlockMatch) {
+            return null;
+        }
+        const firstTextBlock = firstTextBlockMatch[0];
+        const matchingNode = multiTree[`${firstTextBlock}1`];
+        return matchingNode || null;
+    }
+    getDONameStatus() {
+        const doNameValue = this.doName.value;
+        const cdcValue = this.cdcType.value;
+        const isTaken = doNameValue in this.tree;
+        if (isTaken) {
+            return DONameStatus.Taken;
+        }
+        const multiTree = this.getMultiTree();
+        const matchingTreeNode = this.findMatchingTreeNode(doNameValue, multiTree);
+        if (matchingTreeNode) {
+            const doCDCsMatch = cdcValue === matchingTreeNode.type;
+            if (!doCDCsMatch) {
+                return DONameStatus.InvalidCDC;
+            }
+            return DONameStatus.Ok;
+        }
+        return DONameStatus.CustomNamespaceNeeded;
+    }
+    setDONameStatusError(status) {
+        if (status === DONameStatus.Taken) {
+            this.doName.errorText = 'DO name already in use';
+            this.doName.error = true;
+        }
+        else {
+            this.doName.errorText = '';
+            this.doName.error = false;
+        }
+        if (status === DONameStatus.InvalidCDC) {
+            this.cdcType.errorText = 'CDC type invalid for this DO';
+            this.cdcType.error = true;
+        }
+        else {
+            this.cdcType.errorText = '';
+            this.cdcType.error = false;
+        }
     }
     validateForm() {
         var _a, _b;
@@ -38170,19 +38263,33 @@ class AddDataObjectDialog extends ScopedElementsMixin(r$4) {
             this.doName.errorText = '';
             this.doName.error = false;
         }
+        const status = this.getDONameStatus();
+        if (status === DONameStatus.CustomNamespaceNeeded) {
+            if (!this.namespace.value) {
+                this.namespace.errorText = 'Custom namespace required.';
+                this.namespace.error = true;
+                isValid = false;
+            }
+        }
+        else if (status === DONameStatus.Taken ||
+            status === DONameStatus.InvalidCDC) {
+            this.setDONameStatusError(status);
+            isValid = false;
+        }
         return isValid;
     }
     onAddDataObjectSubmit(e) {
+        var _a;
         e.preventDefault();
         if (!this.validateForm())
             return;
+        const status = this.getDONameStatus();
         const cdcType = this.cdcType.value;
         const doName = this.doName.value;
-        this.dispatchEvent(new CustomEvent('add-data-object', {
-            detail: { cdcType, doName },
-            bubbles: true,
-            composed: true,
-        }));
+        const namespace = status === DONameStatus.CustomNamespaceNeeded
+            ? this.namespace.value
+            : null;
+        (_a = this.onConfirm) === null || _a === void 0 ? void 0 : _a.call(this, cdcType, doName, namespace);
         this.close();
     }
     /* eslint-disable class-methods-use-this */
@@ -38210,7 +38317,10 @@ class AddDataObjectDialog extends ScopedElementsMixin(r$4) {
             label="Common Data Class"
             required
             id="cdc-type"
-            @input=${this.resetErrorText}
+            @input=${(e) => {
+            this.resetErrorText(e);
+            this.onValueChange();
+        }}
           >
             ${this.cdClasses.map(cdClass => x `<md-select-option value=${cdClass}
                   >${cdClass}</md-select-option
@@ -38222,6 +38332,17 @@ class AddDataObjectDialog extends ScopedElementsMixin(r$4) {
             required
             maxlength="12"
             pattern="[A-Z][0-9A-Za-z]*"
+            @input=${(e) => {
+            this.resetErrorText(e);
+            this.onValueChange();
+        }}
+          ></md-outlined-text-field>
+          <md-outlined-text-field
+            id="namespace"
+            label="Namespace"
+            placeholder=${this.namespaceDefaultValue}
+            required
+            .disabled=${this.isCustomNamespaceDisabled}
             @input=${this.resetErrorText}
           ></md-outlined-text-field>
         </form>
@@ -38264,8 +38385,14 @@ AddDataObjectDialog.styles = i$6 `
     }
   `;
 __decorate([
+    n$5()
+], AddDataObjectDialog.prototype, "tree", void 0);
+__decorate([
     n$5({ type: Array })
 ], AddDataObjectDialog.prototype, "cdClasses", void 0);
+__decorate([
+    n$5({ type: Function })
+], AddDataObjectDialog.prototype, "onConfirm", void 0);
 __decorate([
     r$2()
 ], AddDataObjectDialog.prototype, "open", void 0);
@@ -38281,6 +38408,12 @@ __decorate([
 __decorate([
     e$3('#do-name')
 ], AddDataObjectDialog.prototype, "doName", void 0);
+__decorate([
+    e$3('#namespace')
+], AddDataObjectDialog.prototype, "namespace", void 0);
+__decorate([
+    r$2()
+], AddDataObjectDialog.prototype, "isCustomNamespaceDisabled", void 0);
 
 /**
  * @license
@@ -38938,6 +39071,12 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
         this.loading = false;
         this.fabLabel = 'Update Logical Node Type';
         this.disableAddDataObjectButton = true;
+        this.handleAddDOConfirm = (cdcType, doName, namespace) => {
+            var _a;
+            if (!((_a = this.addDataObjectDialog) === null || _a === void 0 ? void 0 : _a.validateForm()))
+                return;
+            this.addDataObjectToTree(cdcType, doName, namespace);
+        };
     }
     updated(changedProperties) {
         var _a;
@@ -39081,8 +39220,18 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
         if (isReferenced)
             this.showWarning('The selected logical node type is referenced. This plugin should be used during specification only.');
     }
-    addDataObjectToTree(cdcType, doName) {
-        const cdcChildren = nsdToJson(cdcType);
+    addDataObjectToTree(cdcType, doName, namespace) {
+        let cdcChildren = nsdToJson(cdcType);
+        if (namespace) {
+            cdcChildren = {
+                ...cdcChildren,
+                dataNs: {
+                    ...cdcChildren === null || cdcChildren === void 0 ? void 0 : cdcChildren.dataNs,
+                    mandatory: true,
+                    val: namespace,
+                },
+            };
+        }
         const newDataObject = {
             [doName]: {
                 tagName: 'DataObject',
@@ -39094,14 +39243,6 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
         };
         Object.assign(this.treeUI.tree, newDataObject);
         this.treeUI.requestUpdate();
-    }
-    async handleAddDataObject(e) {
-        var _a;
-        e.preventDefault();
-        const { cdcType, doName } = e.detail;
-        if (!((_a = this.addDataObjectDialog) === null || _a === void 0 ? void 0 : _a.validateForm()))
-            return;
-        this.addDataObjectToTree(cdcType, doName);
     }
     // eslint-disable-next-line class-methods-use-this
     renderWarning() {
@@ -39175,7 +39316,7 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
     </div>`;
     }
     render() {
-        var _a, _b;
+        var _a, _b, _c;
         if (!this.doc)
             return x `<h1>Load SCL document first!</h1>`;
         return x `<div class="container">
@@ -39192,7 +39333,8 @@ class NsdTemplateUpdated extends ScopedElementsMixin(r$4) {
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
       <add-data-object-dialog
         .cdClasses=${cdClasses}
-        @add-data-object=${this.handleAddDataObject}
+        .tree=${(_c = this.treeUI) === null || _c === void 0 ? void 0 : _c.tree}
+        .onConfirm=${this.handleAddDOConfirm}
       ></add-data-object-dialog>`;
     }
 }

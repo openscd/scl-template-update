@@ -57,7 +57,7 @@ export default class NsdTemplateUpdated extends NsdTemplateUpdated_base {
     private handleUpdateTemplate;
     onLNodeTypeSelect(e: CustomEvent): Promise<void>;
     private addDataObjectToTree;
-    private handleAddDataObject;
+    private handleAddDOConfirm;
     renderWarning(): TemplateResult;
     renderChoice(): TemplateResult;
     renderFab(): TemplateResult;

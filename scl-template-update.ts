@@ -25,6 +25,7 @@ import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelec
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 import { MdOutlinedTextField } from '@scopedelement/material-web/textfield/MdOutlinedTextField.js';
+import { CdcChildren } from '@openenergytools/scl-lib/dist/tDataTypeTemplates/nsdToJson.js';
 
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
@@ -292,9 +293,22 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   private addDataObjectToTree(
     cdcType: (typeof cdClasses)[number],
-    doName: string
+    doName: string,
+    namespace: string | null
   ): void {
-    const cdcChildren = nsdToJson(cdcType);
+    let cdcChildren = nsdToJson(cdcType) as CdcChildren;
+
+    if (namespace) {
+      cdcChildren = {
+        ...cdcChildren,
+        dataNs: {
+          ...cdcChildren?.dataNs,
+          mandatory: true,
+          val: namespace,
+        },
+      };
+    }
+
     const newDataObject = {
       [doName]: {
         tagName: 'DataObject',
@@ -308,14 +322,19 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     this.treeUI.requestUpdate();
   }
 
-  private async handleAddDataObject(e: CustomEvent): Promise<void> {
-    e.preventDefault();
-    const { cdcType, doName } = e.detail;
-
+  private handleAddDOConfirm = (
+    cdcType: string,
+    doName: string,
+    namespace: string | null
+  ): void => {
     if (!this.addDataObjectDialog?.validateForm()) return;
 
-    this.addDataObjectToTree(cdcType as (typeof cdClasses)[number], doName);
-  }
+    this.addDataObjectToTree(
+      cdcType as (typeof cdClasses)[number],
+      doName,
+      namespace
+    );
+  };
 
   // eslint-disable-next-line class-methods-use-this
   renderWarning(): TemplateResult {
@@ -408,7 +427,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       ${this.renderFab()} ${this.renderWarning()} ${this.renderChoice()}
       <add-data-object-dialog
         .cdClasses=${cdClasses}
-        @add-data-object=${this.handleAddDataObject}
+        .tree=${this.treeUI?.tree}
+        .onConfirm=${this.handleAddDOConfirm}
       ></add-data-object-dialog>`;
   }
 

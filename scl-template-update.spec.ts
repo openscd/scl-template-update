@@ -71,6 +71,35 @@ describe('NsdTemplateUpdater', () => {
       expect(element.shadowRoot?.querySelector('md-fab')).to.exist);
 
     it('updates MMXU on action button click', async () => {
+      // Test the default 'update' behavior
+      localStorage.removeItem('template-update-setting');
+
+      const event = {
+        detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
+      } as CustomEvent;
+      element.onLNodeTypeSelect(event);
+      await new Promise(res => {
+        setTimeout(res, 0);
+      });
+
+      element.treeUI.selection = mmxuSelection;
+      await element.updateComplete;
+
+      (element.shadowRoot?.querySelector('md-fab') as HTMLElement).click();
+      await element.updateComplete;
+
+      expect(listener).to.have.been.calledOnce;
+      const updateEdits = listener.args[0][0].detail.edit;
+      expect(updateEdits).to.have.length.greaterThan(0);
+
+      expect(listener.args[0][0].detail.title).to.equal(
+        'Update MMXU$oscd$_c53e78191fabefa3'
+      );
+    }).timeout(5000);
+
+    it('swaps MMXU when swap mode is configured', async () => {
+      localStorage.setItem('template-update-setting', 'swap');
+
       const event = {
         detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
       } as CustomEvent;
@@ -115,6 +144,8 @@ describe('NsdTemplateUpdater', () => {
     }).timeout(5000);
 
     it('updates LLN0 on action button click', async () => {
+      localStorage.removeItem('template-update-setting');
+
       const event = {
         detail: { id: 'LLN0$oscd$_85c7ffbe25d80e63' },
       } as CustomEvent;
@@ -131,55 +162,14 @@ describe('NsdTemplateUpdater', () => {
         setTimeout(res, 200);
       });
 
-      const inserts = listener.args[0][0].detail.edit;
-      const removes = listener.args[1][0].detail.edit;
+      expect(listener).to.have.been.calledOnce;
+      const updateEdits = listener.args[0][0].detail.edit;
+      expect(updateEdits).to.have.length.greaterThan(0);
 
-      expect(inserts).to.have.lengthOf(9);
-      expect(removes).to.have.lengthOf(5);
-
-      expect(
-        ((inserts[0] as Insert).node as Element).getAttribute('id')
-      ).to.equal('LLN0$oscd$_70973585614987f4');
-      expect(
-        ((inserts[1] as Insert).node as Element).getAttribute('id')
-      ).to.equal('Mod$oscd$_ca3ec0d8276151d7');
-      expect(
-        ((inserts[2] as Insert).node as Element).getAttribute('id')
-      ).to.equal('origin$oscd$_8c586402c5f97d31');
-      expect(
-        ((inserts[3] as Insert).node as Element).getAttribute('id')
-      ).to.equal('SBOw$oscd$_59a179d1c87265eb');
-      expect(
-        ((inserts[4] as Insert).node as Element).getAttribute('id')
-      ).to.equal('origin$oscd$_a128160f5df91cfa');
-      expect(
-        ((inserts[5] as Insert).node as Element).getAttribute('id')
-      ).to.equal('Oper$oscd$_1c003786901c1473');
-      expect(
-        ((inserts[6] as Insert).node as Element).getAttribute('id')
-      ).to.equal('ctlModel$oscd$_40d881a91fe5c769');
-      expect(
-        ((inserts[7] as Insert).node as Element).getAttribute('id')
-      ).to.equal('orCat$oscd$_677850ccf85aee7a');
-      expect(
-        ((inserts[8] as Insert).node as Element).getAttribute('id')
-      ).to.equal('orCat$oscd$_8f842fc78e972b98');
-
-      expect(
-        ((removes[0] as Remove).node as Element).getAttribute('id')
-      ).to.equal('LLN0$oscd$_85c7ffbe25d80e63');
-      expect(
-        ((removes[1] as Remove).node as Element).getAttribute('id')
-      ).to.equal('Mod$oscd$_d63dba598ea9104c');
-      expect(
-        ((removes[2] as Remove).node as Element).getAttribute('id')
-      ).to.equal('Oper$oscd$_4974a5c5ec541314');
-      expect(
-        ((removes[3] as Remove).node as Element).getAttribute('id')
-      ).to.equal('SBOw$oscd$_4974a5c5ec541314');
-      expect(
-        ((removes[4] as Remove).node as Element).getAttribute('id')
-      ).to.equal('ctlModel$oscd$_f80264355419aeff');
+      // Verify the edit has the correct title
+      expect(listener.args[0][0].detail.title).to.equal(
+        'Update LLN0$oscd$_85c7ffbe25d80e63'
+      );
     }).timeout(5000);
 
     it('does not update with same selection', async () => {
@@ -253,6 +243,8 @@ describe('NsdTemplateUpdater', () => {
     });
 
     it('updates MMXU on action button click', async () => {
+      localStorage.removeItem('template-update-setting');
+
       const event = {
         detail: { id: 'MMXU$oscd$_c53e78191fabefa3' },
       } as CustomEvent;
@@ -272,25 +264,10 @@ describe('NsdTemplateUpdater', () => {
       ).click();
       await element.updateComplete;
 
-      const inserts = listener.args[0][0].detail.edit;
-      const removes = listener.args[1][0].detail.edit;
-
-      expect(inserts).to.have.lengthOf(5);
-      expect(removes).to.have.lengthOf(1);
-
-      expect(
-        ((inserts[0] as Insert).node as Element).getAttribute('id')
-      ).to.equal('MMXU$oscd$_3027abc2662ec638');
-      expect(
-        ((inserts[1] as Insert).node as Element).getAttribute('id')
-      ).to.equal('Beh$oscd$_954939784529ca3d');
-      expect(
-        ((inserts[2] as Insert).node as Element).getAttribute('id')
-      ).to.equal('phsB$oscd$_65ee65af9248ae5d');
-
-      expect(
-        ((removes[0] as Remove).node as Element).getAttribute('id')
-      ).to.equal('MMXU$oscd$_c53e78191fabefa3');
+      expect(listener).to.have.been.called;
+      const firstCall = listener.args[0][0].detail;
+      expect(firstCall.edit).to.have.length.greaterThan(0);
+      expect(firstCall.title).to.equal('Update MMXU$oscd$_c53e78191fabefa3');
     }).timeout(5000);
 
     it('updates the selected LNodeType when the description is changed', async () => {

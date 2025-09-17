@@ -12,6 +12,7 @@ import {
   nsdToJson,
   removeDataType,
   LNodeDescription,
+  updateLNodeType,
 } from '@openenergytools/scl-lib';
 
 import { TreeGrid, TreeSelection } from '@openenergytools/tree-grid';
@@ -25,10 +26,12 @@ import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelec
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 import { MdOutlinedTextField } from '@scopedelement/material-web/textfield/MdOutlinedTextField.js';
+import { MdIconButton } from '@scopedelement/material-web/iconbutton/MdIconButton.js';
 import { CdcChildren } from '@openenergytools/scl-lib/dist/tDataTypeTemplates/nsdToJson.js';
 
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
+import { SettingsDialog } from './components/settings-dialog.js';
 import { cdClasses } from './foundation/constants.js';
 import { buildLNodeTree } from './foundation/tree.js';
 import {
@@ -52,8 +55,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     'md-outlined-button': MdOutlinedButton,
     'md-circular-progress': MdCircularProgress,
     'md-outlined-text-field': MdOutlinedTextField,
+    'md-icon-button': MdIconButton,
     'add-data-object-dialog': AddDataObjectDialog,
     'lnodetype-sidebar': LNodeTypeSidebar,
+    'settings-dialog': SettingsDialog,
   };
 
   @property()
@@ -76,6 +81,9 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
     show: () => void;
     validateForm: () => boolean;
   };
+
+  @query('settings-dialog')
+  settingsDialog!: SettingsDialog;
 
   @query('#lnodetype-desc')
   lnodeTypeDesc!: MdOutlinedTextField;
@@ -103,6 +111,11 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   @state()
   disableAddDataObjectButton = true;
+
+  // eslint-disable-next-line class-methods-use-this
+  get isProMode(): boolean {
+    return localStorage.getItem('mode') === 'pro';
+  }
 
   updated(changedProperties: Map<string, unknown>) {
     super.updated?.(changedProperties);
@@ -146,6 +159,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
   private async saveTemplates() {
     if (!this.doc || !this.nsdSelection) return;
+    const updateSetting =
+      localStorage.getItem('template-update-setting') || 'update';
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;
@@ -166,37 +181,61 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
-    this.dispatchEvent(newEditEvent(inserts));
-    await this.updateComplete;
+    if (updateSetting === 'update') {
+      const newLNodeType = inserts.find(
+        insert => (insert.node as Element).tagName === 'LNodeType'
+      )?.node as Element;
 
-    const remove = removeDataType(
-      { node: this.selectedLNodeType! },
-      { force: true }
-    );
-    this.dispatchEvent(
-      newEditEvent(remove, { squash: true, title: `Update ${lnID}` })
-    );
-    this.lNodeTypes = getLNodeTypes(this.doc);
+      if (newLNodeType) {
+        newLNodeType.setAttribute('id', lnID);
 
-    const updatedLNodeType = inserts.find(
-      insert => (insert.node as Element).tagName === 'LNodeType'
-    )?.node as Element;
+        const updateEdits = updateLNodeType(newLNodeType, this.doc);
 
-    if (updatedLNodeType) {
-      const updatedLNodeTypeID = updatedLNodeType.getAttribute('id');
-      this.selectedLNodeType = updatedLNodeType;
-      await this.updateComplete;
-
-      if (this.lNodeTypeUI && updatedLNodeType) {
-        this.lNodeTypeUI.value = updatedLNodeType.getAttribute('id') ?? '';
+        if (updateEdits.length > 0) {
+          this.dispatchEvent(
+            newEditEvent(updateEdits, {
+              title: `Update ${lnID}`,
+            })
+          );
+        }
       }
 
-      this.fabLabel = `${updatedLNodeTypeID} updated!`;
+      this.fabLabel = `${lnID} updated!`;
+    } else {
+      this.dispatchEvent(newEditEvent(inserts));
+      await this.updateComplete;
 
-      setTimeout(() => {
-        this.fabLabel = 'Update Logical Node Type';
-      }, 5000);
+      const remove = removeDataType(
+        { node: this.selectedLNodeType! },
+        { force: true }
+      );
+      this.dispatchEvent(
+        newEditEvent(remove, { squash: true, title: `Update ${lnID}` })
+      );
+
+      const updatedLNodeType = inserts.find(
+        insert => (insert.node as Element).tagName === 'LNodeType'
+      )?.node as Element;
+
+      if (updatedLNodeType) {
+        const updatedLNodeTypeID = updatedLNodeType.getAttribute('id');
+        this.selectedLNodeType = updatedLNodeType;
+        await this.updateComplete;
+
+        if (this.lNodeTypeUI && updatedLNodeType) {
+          this.lNodeTypeUI.value = updatedLNodeType.getAttribute('id') ?? '';
+        }
+
+        this.fabLabel = `${updatedLNodeTypeID} swapped!`;
+      }
     }
+
+    await this.updateComplete;
+    this.lNodeTypes = getLNodeTypes(this.doc);
+
+    setTimeout(() => {
+      this.fabLabel = 'Update Logical Node Type';
+    }, 5000);
   }
 
   private updateLNodeTypeDescription(desc: string): void {
@@ -407,6 +446,11 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       ${this.loading
         ? html`<md-circular-progress indeterminate></md-circular-progress>`
         : ``}
+      ${this.isProMode
+        ? html`<md-icon-button @click=${() => this.settingsDialog.show()}>
+            <md-icon>settings</md-icon>
+          </md-icon-button>`
+        : html``}
     </div>`;
   }
 
@@ -429,7 +473,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
         .cdClasses=${cdClasses}
         .tree=${this.treeUI?.tree}
         .onConfirm=${this.handleAddDOConfirm}
-      ></add-data-object-dialog>`;
+      ></add-data-object-dialog>
+      <settings-dialog></settings-dialog>`;
   }
 
   static styles = css`
@@ -524,6 +569,10 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       gap: 12px;
       margin-bottom: 12px;
       align-items: stretch;
+    }
+
+    .controls-row md-icon-button {
+      margin-left: auto;
     }
   `;
 }

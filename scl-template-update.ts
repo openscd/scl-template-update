@@ -112,11 +112,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   @state()
   disableAddDataObjectButton = true;
 
-  // eslint-disable-next-line class-methods-use-this
-  get isProMode(): boolean {
-    return localStorage.getItem('mode') === 'pro';
-  }
-
   updated(changedProperties: Map<string, unknown>) {
     super.updated?.(changedProperties);
     if (changedProperties.has('doc')) {
@@ -420,12 +415,16 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   renderFab(): TemplateResult {
     const disabled =
       !this.treeUI?.tree || Object.keys(this.treeUI?.tree).length === 0;
-    return html`<md-fab
-      label="${this.fabLabel}"
-      class="update-lnode-type"
-      ?disabled="${disabled}"
-      @click=${this.handleUpdateTemplate}
-    ></md-fab>`;
+    return html`<div class="fab-container">
+      <md-icon-button @click=${() => this.settingsDialog.show()}>
+        <md-icon>settings</md-icon> </md-icon-button
+      ><md-fab
+        label="${this.fabLabel}"
+        class="update-lnode-type"
+        ?disabled="${disabled}"
+        @click=${this.handleUpdateTemplate}
+      ></md-fab>
+    </div>`;
   }
 
   renderLNodeTypeControls(): TemplateResult {
@@ -446,11 +445,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       ${this.loading
         ? html`<md-circular-progress indeterminate></md-circular-progress>`
         : ``}
-      ${this.isProMode
-        ? html`<md-icon-button @click=${() => this.settingsDialog.show()}>
-            <md-icon>settings</md-icon>
-          </md-icon-button>`
-        : html``}
     </div>`;
   }
 
@@ -553,12 +547,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       background: #fcf6e5;
     }
 
-    .update-lnode-type {
-      position: fixed;
-      bottom: 32px;
-      right: calc(32px + var(--sidebar-width));
-    }
-
     .update-lnode-type[disabled] {
       pointer-events: none;
       opacity: 0.6;
@@ -573,6 +561,16 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
 
     .controls-row md-icon-button {
       margin-left: auto;
+    }
+
+    .fab-container {
+      position: fixed;
+      align-items: center;
+      bottom: 32px;
+      right: calc(var(--sidebar-width) + 32px);
+      display: flex;
+      gap: 16px;
+      width: max-content;
     }
   `;
 }

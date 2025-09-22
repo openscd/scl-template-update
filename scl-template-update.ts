@@ -559,10 +559,6 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       align-items: stretch;
     }
 
-    .controls-row md-icon-button {
-      margin-left: auto;
-    }
-
     .fab-container {
       position: fixed;
       align-items: center;

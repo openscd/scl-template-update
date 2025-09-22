@@ -5,10 +5,13 @@ import { query, state } from 'lit/decorators.js';
 import { MdDialog } from '@scopedelement/material-web/dialog/dialog.js';
 import { MdTextButton } from '@scopedelement/material-web/button/text-button.js';
 import { MdRadio } from '@scopedelement/material-web/radio/radio.js';
+import { TEMPLATE_UPDATE_SETTING_STORAGE_KEY } from '../foundation/constants.js';
 
-type UpdateSettingType = 'swap' | 'update';
-
-const STORAGE_KEY = 'template-update-setting';
+// eslint-disable-next-line no-shadow
+enum UpdateSetting {
+  SWAP = 'swap',
+  UPDATE = 'update',
+}
 
 export class SettingsDialog extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
@@ -21,7 +24,7 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
   dialog!: MdDialog;
 
   @state()
-  private updateSetting: UpdateSettingType = 'update';
+  private updateSetting: UpdateSetting = UpdateSetting.UPDATE;
 
   connectedCallback() {
     super.connectedCallback();
@@ -29,16 +32,21 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
   }
 
   private loadSettings() {
-    const stored = localStorage.getItem(STORAGE_KEY) as UpdateSettingType;
-    if (stored && ['swap', 'update'].includes(stored)) {
+    const stored = localStorage.getItem(
+      TEMPLATE_UPDATE_SETTING_STORAGE_KEY
+    ) as UpdateSetting;
+    if (stored && Object.values(UpdateSetting).includes(stored)) {
       this.updateSetting = stored;
     } else {
-      this.updateSetting = 'update';
+      this.updateSetting = UpdateSetting.UPDATE;
     }
   }
 
   private saveSettings() {
-    localStorage.setItem(STORAGE_KEY, this.updateSetting);
+    localStorage.setItem(
+      TEMPLATE_UPDATE_SETTING_STORAGE_KEY,
+      this.updateSetting
+    );
   }
 
   get open() {
@@ -57,7 +65,7 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
   private handleRadioChange(event: Event) {
     const target = event.target as MdRadio;
     if (target.checked) {
-      this.updateSetting = target.value as UpdateSettingType;
+      this.updateSetting = target.value as UpdateSetting;
     }
   }
 

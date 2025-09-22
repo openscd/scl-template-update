@@ -32,7 +32,10 @@ import { CdcChildren } from '@openenergytools/scl-lib/dist/tDataTypeTemplates/ns
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
 import { SettingsDialog } from './components/settings-dialog.js';
-import { cdClasses } from './foundation/constants.js';
+import {
+  cdClasses,
+  TEMPLATE_UPDATE_SETTING_STORAGE_KEY,
+} from './foundation/constants.js';
 import { buildLNodeTree } from './foundation/tree.js';
 import {
   getLNodeTypes,
@@ -155,7 +158,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private async saveTemplates() {
     if (!this.doc || !this.nsdSelection) return;
     const updateSetting =
-      localStorage.getItem('template-update-setting') || 'update';
+      localStorage.getItem(TEMPLATE_UPDATE_SETTING_STORAGE_KEY) || 'update';
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;

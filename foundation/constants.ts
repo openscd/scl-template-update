@@ -33,3 +33,5 @@ export const cdClasses = [
   'VSS',
   'WYE',
 ] as const;
+
+export const TEMPLATE_UPDATE_SETTING_STORAGE_KEY = 'template-update-setting';

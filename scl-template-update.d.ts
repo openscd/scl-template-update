@@ -9,8 +9,10 @@ import { MdFilledSelect } from '@scopedelement/material-web/select/MdFilledSelec
 import { MdSelectOption } from '@scopedelement/material-web/select/MdSelectOption.js';
 import { MdCircularProgress } from '@scopedelement/material-web/progress/circular-progress.js';
 import { MdOutlinedTextField } from '@scopedelement/material-web/textfield/MdOutlinedTextField.js';
+import { MdIconButton } from '@scopedelement/material-web/iconbutton/MdIconButton.js';
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
+import { SettingsDialog } from './components/settings-dialog.js';
 declare const NsdTemplateUpdated_base: typeof LitElement & import("@open-wc/scoped-elements/lit-element.js").ScopedElementsHostConstructor;
 export default class NsdTemplateUpdated extends NsdTemplateUpdated_base {
     static scopedElements: {
@@ -24,8 +26,10 @@ export default class NsdTemplateUpdated extends NsdTemplateUpdated_base {
         'md-outlined-button': typeof MdOutlinedButton;
         'md-circular-progress': typeof MdCircularProgress;
         'md-outlined-text-field': typeof MdOutlinedTextField;
+        'md-icon-button': typeof MdIconButton;
         'add-data-object-dialog': typeof AddDataObjectDialog;
         'lnodetype-sidebar': typeof LNodeTypeSidebar;
+        'settings-dialog': typeof SettingsDialog;
     };
     doc?: XMLDocument;
     treeUI: TreeGrid;
@@ -36,6 +40,7 @@ export default class NsdTemplateUpdated extends NsdTemplateUpdated_base {
         show: () => void;
         validateForm: () => boolean;
     };
+    settingsDialog: SettingsDialog;
     lnodeTypeDesc: MdOutlinedTextField;
     lNodeTypes: Element[];
     selectedLNodeType?: Element;

@@ -8,9 +8,9 @@ import { MdRadio } from '@scopedelement/material-web/radio/radio.js';
 import { TEMPLATE_UPDATE_SETTING_STORAGE_KEY } from '../foundation/constants.js';
 
 // eslint-disable-next-line no-shadow
-enum UpdateSetting {
-  SWAP = 'swap',
-  UPDATE = 'update',
+export enum UpdateSetting {
+  Swap = 'swap',
+  Update = 'update',
 }
 
 export class SettingsDialog extends ScopedElementsMixin(LitElement) {
@@ -24,7 +24,7 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
   dialog!: MdDialog;
 
   @state()
-  private updateSetting: UpdateSetting = UpdateSetting.UPDATE;
+  private updateSetting: UpdateSetting = UpdateSetting.Update;
 
   connectedCallback() {
     super.connectedCallback();
@@ -38,7 +38,7 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
     if (stored && Object.values(UpdateSetting).includes(stored)) {
       this.updateSetting = stored;
     } else {
-      this.updateSetting = UpdateSetting.UPDATE;
+      this.updateSetting = UpdateSetting.Update;
     }
   }
 
@@ -88,8 +88,8 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
             <label class="radio-item">
               <md-radio
                 name="update-setting"
-                value="update"
-                .checked=${this.updateSetting === 'update'}
+                value=${UpdateSetting.Update}
+                .checked=${this.updateSetting === UpdateSetting.Update}
                 @change=${this.handleRadioChange}
               ></md-radio>
               <span class="radio-label">Update logical node type </span>
@@ -97,8 +97,8 @@ export class SettingsDialog extends ScopedElementsMixin(LitElement) {
             <label class="radio-item">
               <md-radio
                 name="update-setting"
-                value="swap"
-                .checked=${this.updateSetting === 'swap'}
+                value=${UpdateSetting.Swap}
+                .checked=${this.updateSetting === UpdateSetting.Swap}
                 @change=${this.handleRadioChange}
               ></md-radio>
               <span class="radio-label">Swap logical node type </span>

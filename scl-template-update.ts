@@ -31,7 +31,7 @@ import { CdcChildren } from '@openenergytools/scl-lib/dist/tDataTypeTemplates/ns
 
 import { AddDataObjectDialog } from './components/add-data-object-dialog.js';
 import { LNodeTypeSidebar } from './components/lnodetype-sidebar.js';
-import { SettingsDialog } from './components/settings-dialog.js';
+import { SettingsDialog, UpdateSetting } from './components/settings-dialog.js';
 import {
   cdClasses,
   TEMPLATE_UPDATE_SETTING_STORAGE_KEY,
@@ -158,7 +158,8 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
   private async saveTemplates() {
     if (!this.doc || !this.nsdSelection) return;
     const updateSetting =
-      localStorage.getItem(TEMPLATE_UPDATE_SETTING_STORAGE_KEY) || 'update';
+      localStorage.getItem(TEMPLATE_UPDATE_SETTING_STORAGE_KEY) ||
+      UpdateSetting.Update;
 
     const lnClass = this.selectedLNodeType!.getAttribute('lnClass')!;
     const lnID = this.selectedLNodeType!.getAttribute('id')!;
@@ -179,7 +180,7 @@ export default class NsdTemplateUpdated extends ScopedElementsMixin(
       return;
     }
 
-    if (updateSetting === 'update') {
+    if (updateSetting === UpdateSetting.Update) {
       const newLNodeType = inserts.find(
         insert => (insert.node as Element).tagName === 'LNodeType'
       )?.node as Element;
